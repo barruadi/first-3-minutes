@@ -17,6 +17,24 @@ Admin demo tidak memiliki halaman login. Semua data admin harus berasal dari `DE
 
 ---
 
+## 2026-07-16 — Domain 3 RUNNING (Backend fully verified)
+
+Backend FastAPI berjalan di `http://localhost:8000`. Database: Homebrew PostgreSQL@14 port 5432 (bukan Docker).
+
+Semua endpoint D4 telah diverifikasi mengembalikan response yang tepat:
+- `GET /api/guest/rescue/{token}` → GuestRouteResponse ✓
+- `GET /api/admin/analytics` → AnalyticsSummaryResponse ✓
+- `GET /api/admin/locations` → LocationResponse[] ✓
+- `GET /api/admin/floor-plans` → `{items: FloorPlan[]}` ✓
+- `POST /api/admin/locations/{id}/rescue-qr` → QrProvisionResponse ✓
+
+**Domain 4 dapat langsung mengintegrasikan endpoint live.** Tidak perlu fixture mock lagi.
+
+Demo token untuk Guest WebAR: `demo-token-loc-demo-001`
+Guest URL pattern: `http://localhost:5174/rescue/{token}`
+
+---
+
 ## 2026-07-16 — Dependency D4 -> D3: endpoint floor-plan belum contract-shaped
 
 Ditemukan saat Domain 4 mengimplementasikan Admin Slice 3.
