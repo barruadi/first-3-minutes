@@ -1,0 +1,5 @@
+{
+  "name": "lidar-scanner",
+  "version": "1.0.0",
+  "description": "ARKit LiDAR floor plan scanner for React Native"
+}

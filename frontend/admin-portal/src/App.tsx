@@ -7,6 +7,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage.js'));
 const LocationsPage = lazy(() => import('./pages/LocationsPage.js'));
 const LocationDetailPage = lazy(() => import('./pages/LocationDetailPage.js'));
 const CompliancePage = lazy(() => import('./pages/CompliancePage.js'));
+const GuestDrillsPage = lazy(() => import('./pages/GuestDrillsPage.js'));
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
             <Route path="locations" element={<LocationsPage />} />
             <Route path="locations/:locationId" element={<LocationDetailPage />} />
             <Route path="compliance" element={<CompliancePage />} />
+            <Route path="guest-drills" element={<GuestDrillsPage />} />
           </Route>
         </Routes>
       </Suspense>

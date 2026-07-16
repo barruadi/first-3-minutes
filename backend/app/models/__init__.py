@@ -10,10 +10,12 @@ from app.models.drill_metrics import DrillMetrics
 from app.models.reward_issuance import RewardIssuance
 from app.models.qr_token import QrToken
 from app.models.compliance_report import ComplianceReport
+from app.models.building_scan import BuildingScan, BuildingAnchor, GuestDrillSession
 
 __all__ = [
     "Organization", "Building", "FloorPlan", "Location",
     "SpatialScan", "SpatialMap", "DeviceProfile",
     "Drill", "DrillMetrics", "RewardIssuance",
     "QrToken", "ComplianceReport",
+    "BuildingScan", "BuildingAnchor", "GuestDrillSession",
 ]
