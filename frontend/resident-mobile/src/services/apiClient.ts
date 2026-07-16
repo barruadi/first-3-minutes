@@ -71,9 +71,16 @@ export const buildingApi = {
     form.append('mesh', { uri: meshUri, name: 'mesh.obj', type: 'model/obj' } as never);
     return request('/buildings/scan', (data) => {
       const d = data as Record<string, unknown>;
+      const id = d['id'] as string;
+      // Backend returns absolute URL with its own host; replace with the configured BASE_URL
+      // so the image loads correctly from the device.
+      const rawFloorPlan = ((d['floor_plan_url'] ?? d['floorPlanUrl']) as string | undefined) ?? '';
+      const floorPlanUrl = rawFloorPlan
+        ? rawFloorPlan.replace(/^https?:\/\/[^/]+/, BASE_URL)
+        : `${BASE_URL}/uploads/floor_plans/${id}.png`;
       return {
-        id: d['id'] as string,
-        floorPlanUrl: (d['floor_plan_url'] ?? d['floorPlanUrl']) as string,
+        id,
+        floorPlanUrl,
         meshUrl: (d['mesh_url'] ?? d['meshUrl']) as string,
         createdAt: (d['created_at'] ?? d['createdAt']) as string,
       };

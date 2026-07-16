@@ -7,19 +7,19 @@
 export interface AnchorSummary {
   id: string;
   name: string;
-  pos_x: number;
-  pos_z: number;
-  is_exit: boolean;
+  posX: number;
+  posZ: number;
+  isExit: boolean;
 }
 
 export interface AnchorData {
   id: string;
-  scan_id: string;
+  scanId: string;
   name: string;
-  pos_x: number;
-  pos_z: number;
-  is_exit: boolean;
-  floor_plan_url: string;
+  posX: number;
+  posZ: number;
+  isExit: boolean;
+  floorPlanUrl: string;
   anchors: AnchorSummary[];
 }
 
@@ -72,7 +72,6 @@ export async function fetchAnchor(
     !json ||
     typeof json !== 'object' ||
     !('id' in json) ||
-    !('floor_plan_url' in json) ||
     !('anchors' in json)
   ) {
     throw new AnchorApiError('INVALID_RESPONSE', 'Unexpected response format from server.');

@@ -25,8 +25,8 @@ interface AnchorPixel extends AnchorSummary {
 function buildPixelCoords(anchors: AnchorSummary[]): AnchorPixel[] {
   if (anchors.length === 0) return [];
 
-  const xs = anchors.map((a) => a.pos_x);
-  const zs = anchors.map((a) => a.pos_z);
+  const xs = anchors.map((a) => a.posX);
+  const zs = anchors.map((a) => a.posZ);
   const minX = Math.min(...xs);
   const maxX = Math.max(...xs);
   const minZ = Math.min(...zs);
@@ -41,8 +41,8 @@ function buildPixelCoords(anchors: AnchorSummary[]): AnchorPixel[] {
 
   return anchors.map((a) => ({
     ...a,
-    px: offsetX + ((a.pos_x - minX) / rangeX) * innerSize,
-    py: offsetZ + ((a.pos_z - minZ) / rangeZ) * innerSize,
+    px: offsetX + ((a.posX - minX) / rangeX) * innerSize,
+    py: offsetZ + ((a.posZ - minZ) / rangeZ) * innerSize,
   }));
 }
 
@@ -72,7 +72,7 @@ function drawMap(
     ctx.globalAlpha = 1;
   }
 
-  const exitAnchor = pixelAnchors.find((a) => a.is_exit);
+  const exitAnchor = pixelAnchors.find((a) => a.isExit);
   const currentAnchor = pixelAnchors.find((a) => a.id === currentId);
 
   // Draw route line first (below dots)
@@ -92,7 +92,7 @@ function drawMap(
   // Draw anchors
   for (const a of pixelAnchors) {
     const isCurrent = a.id === currentId;
-    const isExit = a.is_exit;
+    const isExit = a.isExit;
 
     let color: string;
     let label: string;
@@ -190,13 +190,16 @@ export default function MapPage() {
       const px = buildPixelCoords(data.anchors);
       setPixelAnchors(px);
 
-      // Load floor plan image
+      // Load floor plan image — strip absolute origin so vite proxy forwards /uploads/* to backend
       const img = new Image();
       img.crossOrigin = 'anonymous';
       img.onload = () => {
         imageRef.current = img;
       };
-      img.src = data.floor_plan_url;
+      const floorPlanSrc = data.floorPlanUrl
+        ? data.floorPlanUrl.replace(/^https?:\/\/[^/]+/, '')
+        : '';
+      img.src = floorPlanSrc;
     } catch {
       navigate('/', { replace: true });
     }
@@ -265,14 +268,14 @@ export default function MapPage() {
     );
   }
 
-  const exitAnchor = pixelAnchors.find((a) => a.is_exit);
+  const exitAnchor = pixelAnchors.find((a) => a.isExit);
   const currentAnchor = pixelAnchors.find((a) => a.id === anchorData.id);
 
   // Distance in meters (straight line from pos_x/pos_z)
   let distanceM: number | null = null;
   if (currentAnchor && exitAnchor) {
-    const dx = currentAnchor.pos_x - exitAnchor.pos_x;
-    const dz = currentAnchor.pos_z - exitAnchor.pos_z;
+    const dx = currentAnchor.posX - exitAnchor.posX;
+    const dz = currentAnchor.posZ - exitAnchor.posZ;
     distanceM = Math.sqrt(dx * dx + dz * dz);
   }
 
@@ -499,10 +502,10 @@ function ArOverlay({
   // Compute distance to exit
   useEffect(() => {
     const current = pixelAnchors.find((a) => a.id === anchorData.id);
-    const exit = pixelAnchors.find((a) => a.is_exit);
+    const exit = pixelAnchors.find((a) => a.isExit);
     if (current && exit) {
-      const dx = current.pos_x - exit.pos_x;
-      const dz = current.pos_z - exit.pos_z;
+      const dx = current.posX - exit.posX;
+      const dz = current.posZ - exit.posZ;
       setDistanceM(Math.sqrt(dx * dx + dz * dz));
     }
   }, [anchorData.id, pixelAnchors]);
@@ -553,9 +556,9 @@ function ArOverlay({
 
       // Compute arrow angle: bearing from current anchor to exit, relative to heading
       const current = pixelAnchors.find((a) => a.id === anchorData.id);
-      const exit = pixelAnchors.find((a) => a.is_exit);
+      const exit = pixelAnchors.find((a) => a.isExit);
       if (current && exit) {
-        const bearing = Math.atan2(exit.pos_x - current.pos_x, -(exit.pos_z - current.pos_z)) * (180 / Math.PI);
+        const bearing = Math.atan2(exit.posX - current.posX, -(exit.posZ - current.posZ)) * (180 / Math.PI);
         let rel = bearing - headingRef.current;
         while (rel > 180) rel -= 360;
         while (rel < -180) rel += 360;
