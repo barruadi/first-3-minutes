@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 import { resolve } from 'path';
 
 export default defineConfig(({ mode }) => ({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       '@3minutes/contracts': resolve(__dirname, '../packages/contracts/src/index.ts'),
@@ -12,7 +13,6 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5174,
-    https: {},
   },
   build: {
     outDir: 'dist',

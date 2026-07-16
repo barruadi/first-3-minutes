@@ -32,6 +32,12 @@ interface Props {
 const ARROW_COLOR = 0x39ff14; // neon green — hanya untuk directional arrow (design.md §1).
 const EYE_HEIGHT_M = 1.6;
 
+const MODE_LABELS: Record<AccessibilityMode, string> = {
+  VISUAL_ONLY: 'Visual',
+  VISUAL_AND_AUDIO: 'Visual + suara',
+  AUDIO_PRIMARY: 'Suara',
+};
+
 export default function ArScene({ route, stream, mode, onModeChange, onSceneReady }: Props) {
   const mountRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -235,18 +241,20 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
   const instruction = guidance ? guidanceToSpeech(guidance) : 'Menyiapkan panduan...';
 
   return (
-    <div style={{ position: 'relative', width: '100vw', height: '100vh', overflow: 'hidden', background: '#000' }}>
+    <div className="relative w-screen h-screen overflow-hidden bg-black">
       <video
         ref={videoRef}
-        style={{ position: 'absolute', width: '100%', height: '100%', objectFit: 'cover' }}
+        className="absolute w-full h-full object-cover"
         playsInline
         muted
         autoPlay
       />
-      <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
+      <div ref={mountRef} className="absolute inset-0" />
 
       {orientationBlocked && (
-        <div style={banner}>Arah kompas tidak tersedia. Instruksi jarak tetap berjalan.</div>
+        <div className="absolute top-4 left-4 right-4 bg-hazard/90 text-warm-beige px-4 py-2.5 rounded-[10px] text-[13px] text-center">
+          Arah kompas tidak tersedia. Instruksi jarak tetap berjalan.
+        </div>
       )}
 
       {/*
@@ -256,76 +264,33 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
       */}
       <div
         aria-live="assertive"
-        style={{
-          position: 'absolute',
-          bottom: 96,
-          left: 16,
-          right: 16,
-          display: 'flex',
-          justifyContent: 'center',
-          pointerEvents: 'none',
-        }}
+        className="absolute bottom-24 left-4 right-4 flex justify-center pointer-events-none"
       >
         <div
-          style={{
-            background: 'rgba(10,41,71,0.85)',
-            color: '#F3E4C9',
-            padding: '12px 22px',
-            borderRadius: 22,
-            fontSize: mode === 'AUDIO_PRIMARY' ? 18 : 15,
-            fontWeight: 600,
-            textAlign: 'center',
-            maxWidth: 420,
-          }}
+          className={`bg-navy/85 text-warm-beige px-[22px] py-3 rounded-[22px] font-semibold text-center max-w-[420px] ${
+            mode === 'AUDIO_PRIMARY' ? 'text-lg' : 'text-[15px]'
+          }`}
         >
           {instruction}
         </div>
       </div>
 
-      <div
-        style={{
-          position: 'absolute',
-          bottom: 24,
-          left: 0,
-          right: 0,
-          display: 'flex',
-          justifyContent: 'center',
-          gap: 8,
-        }}
-      >
+      <div className="absolute bottom-6 left-0 right-0 flex justify-center gap-2">
         {(['VISUAL_ONLY', 'VISUAL_AND_AUDIO', 'AUDIO_PRIMARY'] as AccessibilityMode[]).map((m) => (
           <button
             key={m}
             onClick={() => onModeChange(m)}
             aria-pressed={mode === m}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 999,
-              border: `1px solid ${mode === m ? '#F3E4C9' : 'rgba(243,228,201,0.4)'}`,
-              background: mode === m ? 'rgba(243,228,201,0.2)' : 'rgba(10,41,71,0.7)',
-              color: '#F3E4C9',
-              fontSize: 12,
-              minHeight: 36,
-              cursor: 'pointer',
-            }}
+            className={`px-3.5 py-2 rounded-full border text-warm-beige text-xs min-h-[36px] cursor-pointer ${
+              mode === m
+                ? 'border-warm-beige bg-warm-beige/20'
+                : 'border-warm-beige/40 bg-navy/70'
+            }`}
           >
-            {m === 'VISUAL_ONLY' ? 'Visual' : m === 'VISUAL_AND_AUDIO' ? 'Visual + suara' : 'Suara'}
+            {MODE_LABELS[m]}
           </button>
         ))}
       </div>
     </div>
   );
 }
-
-const banner: React.CSSProperties = {
-  position: 'absolute',
-  top: 16,
-  left: 16,
-  right: 16,
-  background: 'rgba(139,94,60,0.92)',
-  color: '#F3E4C9',
-  padding: '10px 16px',
-  borderRadius: 10,
-  fontSize: 13,
-  textAlign: 'center',
-};

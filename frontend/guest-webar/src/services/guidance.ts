@@ -39,10 +39,25 @@ function relativeBearingDeg(from: Coordinate3D, to: Coordinate3D, headingDeg: nu
   return rel;
 }
 
+/**
+ * Returns true if the user has moved past `wp` along the segment from `prev` to `wp`.
+ * Uses signed path projection so we detect overshoot even without entering the radius.
+ */
+function isWaypointPassed(prev: Coordinate3D, wp: Coordinate3D, userPos: Coordinate3D): boolean {
+  if (distance2D(userPos, wp) <= WAYPOINT_REACHED_M) return true;
+  const dx = wp.x - prev.x;
+  const dz = wp.z - prev.z;
+  const segLen = Math.hypot(dx, dz);
+  if (segLen < 0.001) return false;
+  const proj = (userPos.x - prev.x) * (dx / segLen) + (userPos.z - prev.z) * (dz / segLen);
+  return proj > segLen - WAYPOINT_REACHED_M;
+}
+
 /** Waypoint aktif = titik rute pertama yang belum tercapai. */
 export function activeWaypointIndex(route: GuestRoute, pose: Pose): number {
   for (let i = 0; i < route.routePoints.length; i++) {
-    if (distance2D(pose.position, route.routePoints[i]!) > WAYPOINT_REACHED_M) return i;
+    const prev: Coordinate3D = i === 0 ? route.origin : route.routePoints[i - 1]!;
+    if (!isWaypointPassed(prev, route.routePoints[i]!, pose.position)) return i;
   }
   return route.routePoints.length; // seluruh waypoint terlewati -> menuju exit
 }

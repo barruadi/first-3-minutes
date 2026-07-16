@@ -27,7 +27,7 @@ export async function resolveGuestToken(
 ): Promise<GuestRoute> {
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}/api/guest/rescue/${encodeURIComponent(token)}`, { signal });
+    res = await fetch(`${BASE_URL}/api/guest/rescue/${encodeURIComponent(token)}`, { signal: signal ?? null });
   } catch {
     throw new GuestApiError('NETWORK_ERROR', 'Layanan tidak dapat dijangkau.');
   }

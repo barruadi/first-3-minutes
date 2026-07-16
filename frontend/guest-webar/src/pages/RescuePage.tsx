@@ -159,18 +159,7 @@ export default function RescuePage() {
           <button
             onClick={() => void requestCamera()}
             disabled={busy}
-            style={{
-              marginTop: 8,
-              padding: '14px 28px',
-              background: '#F3E4C9',
-              color: '#0A2947',
-              border: 'none',
-              borderRadius: 999,
-              fontSize: 16,
-              fontWeight: 700,
-              cursor: busy ? 'wait' : 'pointer',
-              minHeight: 48,
-            }}
+            className={`mt-2 px-7 py-3.5 bg-warm-beige text-navy rounded-full text-base font-bold min-h-[48px] ${busy ? 'cursor-wait opacity-70' : 'cursor-pointer'}`}
           >
             {busy ? 'Meminta akses kamera...' : 'Mulai panduan'}
           </button>
@@ -204,25 +193,17 @@ function ModeSelector({
     { value: 'AUDIO_PRIMARY', label: 'Suara utama' },
   ];
   return (
-    <fieldset style={{ border: 'none', padding: 0, margin: '8px 0' }}>
-      <legend style={{ fontSize: 13, opacity: 0.8, marginBottom: 8, textAlign: 'center' }}>
-        Mode panduan
-      </legend>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+    <fieldset className="border-0 p-0 my-2">
+      <legend className="text-[13px] opacity-80 mb-2 text-center w-full">Mode panduan</legend>
+      <div className="flex gap-2 flex-wrap justify-center">
         {options.map((o) => (
           <label
             key={o.value}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 999,
-              border: `1px solid ${mode === o.value ? '#F3E4C9' : 'rgba(243,228,201,0.4)'}`,
-              background: mode === o.value ? 'rgba(243,228,201,0.18)' : 'transparent',
-              fontSize: 13,
-              cursor: 'pointer',
-              minHeight: 36,
-              display: 'flex',
-              alignItems: 'center',
-            }}
+            className={`px-3.5 py-2 rounded-full border text-[13px] cursor-pointer min-h-[36px] flex items-center ${
+              mode === o.value
+                ? 'border-warm-beige bg-warm-beige/20'
+                : 'border-warm-beige/40 bg-transparent'
+            }`}
           >
             <input
               type="radio"
@@ -230,7 +211,7 @@ function ModeSelector({
               value={o.value}
               checked={mode === o.value}
               onChange={() => onChange(o.value)}
-              style={{ position: 'absolute', opacity: 0, width: 0, height: 0 }}
+              className="absolute opacity-0 w-0 h-0"
             />
             {o.label}
           </label>
@@ -242,19 +223,7 @@ function ModeSelector({
 
 function Screen({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        background: '#0A2947',
-        padding: 24,
-        gap: 16,
-        color: '#F3E4C9',
-      }}
-    >
+    <div className="flex flex-col items-center justify-center min-h-screen bg-navy p-6 gap-4 text-warm-beige">
       {children}
     </div>
   );
@@ -262,29 +231,18 @@ function Screen({ children }: { children: React.ReactNode }) {
 
 function Spinner() {
   return (
-    <div
-      style={{
-        width: 40,
-        height: 40,
-        border: '3px solid rgba(243,228,201,0.3)',
-        borderTopColor: '#F3E4C9',
-        borderRadius: '50%',
-        animation: 'spin 0.8s linear infinite',
-      }}
-    />
+    <div className="w-10 h-10 rounded-full border-[3px] border-warm-beige/30 border-t-warm-beige animate-spin" />
   );
 }
 
 function Icon({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 48 }}>{children}</div>;
+  return <div className="text-5xl">{children}</div>;
 }
 
 function Text({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontWeight: 600, fontSize: 18, textAlign: 'center' }}>{children}</div>;
+  return <div className="font-semibold text-lg text-center">{children}</div>;
 }
 
 function Sub({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ fontSize: 14, opacity: 0.7, textAlign: 'center', maxWidth: 320 }}>{children}</div>
-  );
+  return <div className="text-sm opacity-70 text-center max-w-xs">{children}</div>;
 }
