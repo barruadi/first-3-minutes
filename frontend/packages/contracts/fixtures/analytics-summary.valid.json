@@ -1,0 +1,19 @@
+{
+  "buildingId": "building-demo-001",
+  "participationRatePercentage": 85.0,
+  "averageShelterTimeMs": 12100,
+  "escapeRouteTrends": [
+    {
+      "period": "2026-W29",
+      "averageEvacuationTimeMs": 64000
+    }
+  ],
+  "heatmapCells": [
+    {
+      "locationRef": "floor-4-room-402",
+      "failureRatePercentage": 15.0,
+      "averageEvacuationTimeMs": 73200,
+      "sampleCount": 20
+    }
+  ]
+}

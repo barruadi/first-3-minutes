@@ -1,0 +1,7 @@
+{
+  "scanId": "scan-demo-001",
+  "reactionTimeMs": 8420,
+  "evacuationTimeMs": 61240,
+  "postureScorePercentage": 91,
+  "completedAtDevice": "2026-07-16T00:00:00Z"
+}

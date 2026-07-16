@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "3MINUTES",
+    "slug": "three-minutes",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0A2947"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.threeminutes.resident",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Dibutuhkan untuk merekam ruangan dan AR drill.",
+        "NSMotionUsageDescription": "Dibutuhkan untuk sensor gyroscope dan accelerometer pada drill."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0A2947"
+      },
+      "package": "com.threeminutes.resident",
+      "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-camera",
+      ["expo-sensors", { "motionPermission": "Dibutuhkan untuk drill sensor." }]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "PLACEHOLDER_EAS_PROJECT_ID"
+      }
+    }
+  }
+}

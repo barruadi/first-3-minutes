@@ -1,0 +1,34 @@
+{
+  "name": "@3minutes/guest-webar",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --https",
+    "dev:plain": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview --https",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src --ext .ts,.tsx",
+    "test": "vitest run",
+    "analyze": "vite build --mode analyze"
+  },
+  "dependencies": {
+    "@3minutes/contracts": "*",
+    "@3minutes/design-tokens": "*",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.24.1",
+    "three": "^0.166.1"
+  },
+  "devDependencies": {
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.166.0",
+    "@vitejs/plugin-react": "^4.3.1",
+    "typescript": "^5.4.5",
+    "vite": "^5.3.4",
+    "vitest": "^1.6.0",
+    "jsdom": "^24.1.1"
+  }
+}

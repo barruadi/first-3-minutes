@@ -1,0 +1,7 @@
+{
+  "scanId": 12345,
+  "origin": { "x": "not-a-number", "y": 0, "z": 0 },
+  "safeZones": "not-an-array",
+  "source": "unknown-source",
+  "createdAt": "not-a-datetime"
+}
