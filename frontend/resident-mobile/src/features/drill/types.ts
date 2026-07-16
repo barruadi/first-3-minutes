@@ -1,4 +1,5 @@
-import type { DrillCompletionResponse } from '@3minutes/contracts';
+import type { DrillCompletionResponse, AccessibilityMode, GuidanceAction, GuidanceEvent } from '@3minutes/contracts';
+export type { AccessibilityMode, GuidanceAction, GuidanceEvent };
 
 export type DrillPhase =
   | 'ready'
@@ -19,27 +20,7 @@ export type FailureReason =
   | 'app_backgrounded'
   | 'internal_error';
 
-export type AccessibilityMode = 'VISUAL_ONLY' | 'VISUAL_AND_AUDIO' | 'AUDIO_PRIMARY';
-
 export type PostureStatus = 'LOW' | 'TOO_HIGH' | 'UNKNOWN';
-
-export type GuidanceAction =
-  | 'GO_STRAIGHT'
-  | 'TURN_LEFT'
-  | 'TURN_RIGHT'
-  | 'AVOID_LEFT'
-  | 'AVOID_RIGHT'
-  | 'STAY_LOW'
-  | 'SAFE_ZONE_LEFT'
-  | 'SAFE_ZONE_RIGHT'
-  | 'EXIT_AHEAD'
-  | 'ARRIVED';
-
-export interface GuidanceEvent {
-  action: GuidanceAction;
-  distanceMeters?: number;
-  priority: 'NORMAL' | 'CRITICAL';
-}
 
 export interface SensorCapability {
   lightSensor: boolean;

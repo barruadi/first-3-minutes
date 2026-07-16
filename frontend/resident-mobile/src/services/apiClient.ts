@@ -1,6 +1,8 @@
 import {
-  DrillCompletionResponseSchema, ResidentProfileSchema, SpatialMapSchema,
-  type DrillMetrics, type ResidentProfile, type SpatialMap, type DrillCompletionResponse,
+  DrillCompletionResponseSchema, ResidentHomeResponseSchema, SpatialMapSchema,
+  ResidentRewardsResponseSchema, ResidentHistoryResponseSchema,
+  type DrillMetrics, type ResidentHomeResponse, type SpatialMap,
+  type DrillCompletionResponse, type ResidentRewardsResponse, type ResidentHistoryResponse,
 } from '@3minutes/contracts';
 
 const BASE_URL = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://localhost:8000';
@@ -31,28 +33,17 @@ async function request<T>(path: string, parser: (value: unknown) => T, options: 
   }
 }
 
-export type RewardRecord = { id: string; label: string; issuedAt: string };
-export type RewardsResponse = { rewards: RewardRecord[]; eligibility?: ResidentProfile['rewardEligibility']; message?: string };
-export type HistoryItem = { drillId: string; reactionTimeMs: number; evacuationTimeMs: number; postureScorePercentage: number; recordedAt: string };
-export type HistoryResponse = { items: HistoryItem[]; nextCursor: string | null; message?: string };
-
 export const residentApi = {
-  getHome: (installationId: string, signal?: AbortSignal) => request(`/resident/home?installationId=${encodeURIComponent(installationId)}`, (data) => ResidentProfileSchema.parse(data), { signal }),
-  uploadScan: (formData: FormData, signal?: AbortSignal) => request('/scans/spatial-map', (data) => SpatialMapSchema.parse(data), { method: 'POST', body: formData, signal }),
-  completeDrill: (drillId: string, metrics: DrillMetrics, signal?: AbortSignal) => request(`/drills/${encodeURIComponent(drillId)}/complete`, (data) => DrillCompletionResponseSchema.parse(data), { method: 'POST', body: JSON.stringify(metrics), signal }),
-  getRewards: (installationId: string, signal?: AbortSignal) => request<RewardsResponse>(`/resident/rewards?installationId=${encodeURIComponent(installationId)}`, parseRewards, { signal }),
-  getHistory: (installationId: string, limit = 20, signal?: AbortSignal) => request<HistoryResponse>(`/resident/history?installationId=${encodeURIComponent(installationId)}&limit=${limit}`, parseHistory, { signal }),
+  getHome: (installationId: string, signal?: AbortSignal) =>
+    request(`/resident/home?installationId=${encodeURIComponent(installationId)}`, (data) => ResidentHomeResponseSchema.parse(data), { signal }),
+  uploadScan: (formData: FormData, signal?: AbortSignal) =>
+    request('/scans/spatial-map', (data) => SpatialMapSchema.parse(data), { method: 'POST', body: formData, signal }),
+  completeDrill: (drillId: string, metrics: DrillMetrics, signal?: AbortSignal) =>
+    request(`/drills/${encodeURIComponent(drillId)}/complete`, (data) => DrillCompletionResponseSchema.parse(data), { method: 'POST', body: JSON.stringify(metrics), signal }),
+  getRewards: (installationId: string, signal?: AbortSignal) =>
+    request(`/resident/rewards?installationId=${encodeURIComponent(installationId)}`, (data) => ResidentRewardsResponseSchema.parse(data), { signal }),
+  getHistory: (installationId: string, limit = 20, signal?: AbortSignal) =>
+    request(`/resident/history?installationId=${encodeURIComponent(installationId)}&limit=${limit}`, (data) => ResidentHistoryResponseSchema.parse(data), { signal }),
 };
 
-function parseRewards(value: unknown): RewardsResponse {
-  const data = value as Partial<RewardsResponse>;
-  if (!data || !Array.isArray(data.rewards)) throw new Error('Response reward tidak valid');
-  return { rewards: data.rewards, eligibility: data.eligibility, message: data.message };
-}
-function parseHistory(value: unknown): HistoryResponse {
-  const data = value as Partial<HistoryResponse>;
-  if (!data || !Array.isArray(data.items)) throw new Error('Response riwayat tidak valid');
-  return { items: data.items, nextCursor: data.nextCursor ?? null, message: data.message };
-}
-
-export type { SpatialMap, DrillCompletionResponse };
+export type { SpatialMap, DrillCompletionResponse, ResidentHomeResponse, ResidentRewardsResponse, ResidentHistoryResponse };

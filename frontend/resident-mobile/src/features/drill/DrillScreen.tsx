@@ -10,6 +10,7 @@ import { useDrillAudio } from './hooks/useDrillAudio';
 import { selectNearestSafeZone, selectNearestExitPoint } from './ar/SafeZoneSelector';
 import type { AccessibilityMode } from './types';
 import { DEMO_SCAN_ID, DEMO_INSTALLATION_ID } from './types';
+import { spatialSession } from '../../services/spatialSession';
 import DrillReadyScreen from './DrillReadyScreen';
 import DrillResultScreen from './DrillResultScreen';
 import EarthquakePhase from './components/EarthquakePhase';
@@ -46,8 +47,8 @@ export default function DrillScreen({ spatialMap: propMap }: Props) {
   const [accessibilityMode, setAccessibilityMode] = useState<AccessibilityMode>('VISUAL_AND_AUDIO');
   const [drillStarted, setDrillStarted] = useState(false);
 
-  // Use prop map, or fall back to demo fixture
-  const activeSpatialMap: SpatialMap = propMap ?? DEMO_SPATIAL_MAP;
+  // Use prop map → session map from completed scan → demo fixture
+  const activeSpatialMap: SpatialMap = propMap ?? spatialSession.get()?.map ?? DEMO_SPATIAL_MAP;
 
   const scanId = activeSpatialMap.scanId;
   const {

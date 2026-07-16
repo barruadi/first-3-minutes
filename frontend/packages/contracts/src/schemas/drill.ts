@@ -1,5 +1,9 @@
 import { z } from 'zod';
-import { AccessibilityModeSchema, type GuidanceEvent } from './accessibility.js';
+import {
+  AccessibilityModeSchema,
+  type AccessibilityMode,
+  type GuidanceEvent,
+} from './accessibility.js';
 import { SpatialMapSchema, type SpatialMap } from './spatial.js';
 import { TierSchema } from './common.js';
 

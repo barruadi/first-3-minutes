@@ -2,13 +2,13 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { ResidentProfile } from '@3minutes/contracts';
+import type { ResidentHomeResponse } from '../../services/apiClient';
 import Button from '../../components/Button'; import Card from '../../components/Card'; import ErrorState from '../../components/ErrorState'; import LoadingState from '../../components/LoadingState';
 import { residentApi } from '../../services/apiClient'; import { getInstallationId } from '../../services/installationIdentity'; import type { RootTabParamList } from '../../navigation/RootNavigator'; import { theme } from '../../theme';
 
 type Nav = BottomTabNavigationProp<RootTabParamList, 'Home'>;
 export default function HomeScreen() {
-  const navigation = useNavigation<Nav>(); const [profile, setProfile] = useState<ResidentProfile | null>(null); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [error, setError] = useState<string | null>(null);
+  const navigation = useNavigation<Nav>(); const [profile, setProfile] = useState<ResidentHomeResponse | null>(null); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [error, setError] = useState<string | null>(null);
   const load = useCallback(async (refresh = false) => { refresh ? setRefreshing(true) : setLoading(true); setError(null); try { setProfile(await residentApi.getHome(await getInstallationId())); } catch (e) { setError(e instanceof Error ? e.message : 'Gagal memuat profil.'); } finally { setLoading(false); setRefreshing(false); } }, []);
   useEffect(() => { void load(); }, [load]); useFocusEffect(useCallback(() => { if (profile) void load(true); }, [load, profile?.safetyRating.lastDrillAt]));
   if (loading) return <LoadingState message="Memuat status keselamatan..." />; if (error && !profile) return <View style={styles.page}><ErrorState message={error} onRetry={() => void load()} /></View>;
