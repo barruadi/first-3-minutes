@@ -1,5 +1,6 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
+import { describe, expect, it, jest } from '@jest/globals';
 
 // Smoke test: root component renders without crashing
 jest.mock('expo-status-bar', () => ({ StatusBar: () => null }));
@@ -11,7 +12,7 @@ jest.mock('expo-sensors', () => ({
 }));
 
 jest.mock('@react-navigation/native', () => {
-  const actual = jest.requireActual('@react-navigation/native');
+  const actual = jest.requireActual<typeof import('@react-navigation/native')>('@react-navigation/native');
   return { ...actual, NavigationContainer: ({ children }: { children: React.ReactNode }) => <>{children}</> };
 });
 

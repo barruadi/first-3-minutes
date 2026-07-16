@@ -1,46 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import LoadingState from '../../components/LoadingState';
-import { residentApi } from '../../services/apiClient';
+import React, { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Card from '../../components/Card'; import EmptyState from '../../components/EmptyState'; import ErrorState from '../../components/ErrorState'; import LoadingState from '../../components/LoadingState';
+import { residentApi, type HistoryResponse } from '../../services/apiClient'; import { getInstallationId } from '../../services/installationIdentity'; import { theme } from '../../theme';
 
 export default function HistoryScreen() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        await residentApi.getHistory('resident-demo-001');
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Gagal memuat riwayat');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
-  if (loading) return <LoadingState message="Memuat riwayat..." />;
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Riwayat Latihan</Text>
-      {error && <Text style={styles.error}>{error}</Text>}
-      <View style={styles.placeholder}>
-        <Text style={styles.icon}>📋</Text>
-        <Text style={styles.text}>Riwayat latihan Anda akan muncul di sini</Text>
-        <Text style={styles.sub}>[Domain 1: Drill history list, safety rating progression]</Text>
-      </View>
-    </ScrollView>
-  );
+  const [data, setData] = useState<HistoryResponse | null>(null); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async (refresh = false) => { refresh ? setRefreshing(true) : setLoading(true); setError(null); try { setData(await residentApi.getHistory(await getInstallationId())); } catch (e) { setError(e instanceof Error ? e.message : 'Gagal memuat riwayat.'); } finally { setLoading(false); setRefreshing(false); } }, []);
+  useEffect(() => { void load(); }, [load]); if (loading) return <LoadingState message="Memuat riwayat..." />; if (error && !data) return <View style={styles.page}><ErrorState message={error} onRetry={() => void load()} /></View>;
+  return <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />}><Text style={styles.eyebrow}>PROGRESS</Text><Text style={styles.title}>Riwayat latihan</Text>{error && <ErrorState message={error} />}{!data?.items.length ? <EmptyState message="Belum ada latihan" hint="Scan ruangan dan selesaikan latihan pertamamu untuk melihat progress." /> : data.items.map((item) => <Card key={item.drillId}><View style={styles.row}><Text style={styles.cardTitle}>{new Date(item.recordedAt).toLocaleDateString('id-ID')}</Text><Text style={styles.posture}>{Math.round(item.postureScorePercentage)}% postur</Text></View><Text style={styles.metric}>Reaksi {(item.reactionTimeMs / 1000).toFixed(1)} dtk  •  Evakuasi {(item.evacuationTimeMs / 1000).toFixed(1)} dtk</Text></Card>)}</ScrollView>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3E4C9' },
-  content: { padding: 20, gap: 16 },
-  title: { color: '#0A2947', fontSize: 22, fontWeight: '700' },
-  error: { color: '#C62828', fontSize: 13 },
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 },
-  icon: { fontSize: 48 },
-  text: { color: '#475665', fontSize: 14 },
-  sub: { color: '#475665', fontSize: 11, opacity: 0.7, textAlign: 'center' },
-});
+const styles = StyleSheet.create({ page: { flex: 1, backgroundColor: theme.colors.surfaceWarm }, content: { padding: 20, gap: 16 }, eyebrow: { color: theme.colors.accentEarth, fontWeight: '700', letterSpacing: 1.2, fontSize: 12 }, title: { color: theme.colors.primary900, fontSize: 30, fontWeight: '700' }, row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 }, cardTitle: { color: theme.colors.primary900, fontSize: 16, fontWeight: '700' }, posture: { color: theme.colors.accentEarth, fontWeight: '700' }, metric: { color: theme.colors.textSecondary, marginTop: 10, lineHeight: 21 } });

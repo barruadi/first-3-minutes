@@ -204,6 +204,22 @@ Architect harus mengisi keputusan berikut setelah repository/device inspection:
 - Migration/action required: Kontrak, migration, fixture, dan QA tidak boleh membuat route/token auth.
 - Verification: Bootstrap check dan contract tests setelah implementasi.
 
+## 2026-07-16 — Domain 1 resident scan and read-model implementation
+
+- Type: INTEGRATION
+- Author/role: Coder Domain 1
+- Status: ACCEPTED
+- Related tasks: D1 scan pipeline, resident home, rewards, history, accessibility adapter
+- Context: Bootstrap mobile screens were placeholders and used a hard-coded demo resident identity.
+- Decision/change: Domain 1 now persists an anonymous installation ID, calls the existing `/api` contracts, validates spatial/rating responses, and hands a validated in-memory SpatialMap to Domain 2. Scan processing uses 15 target timestamps from 3,000 through 45,000 ms and retains all 15 frames while enforcing a 4 MB aggregate budget.
+- Reason summary: Implements the resident-owned vertical slices without moving rating/reward decisions to the client or changing frozen shared contracts.
+- Impact Domain 1: Real camera/file/TTS pipeline and production-like data states are available pending device verification.
+- Impact Domain 2: Consume `spatialSession` and `accessibilityGuidance`; no navigation ownership change.
+- Impact Domain 3: Mobile targets the frozen `/api` surface; real rewards/history data remains a backend dependency.
+- Impact Domain 4: None.
+- Migration/action required: Run npm install to produce/update the single root lockfile, then typecheck/Jest and test on the iPhone Development Build.
+- Verification: `git diff --check` passed; dependency install and device verification remain open and are not claimed.
+
 ---
 
 ## 2026-07-16 — Bootstrap scaffold selesai
