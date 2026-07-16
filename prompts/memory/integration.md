@@ -14,3 +14,23 @@ Urutan integrasi:
 Shared paths hanya diubah Bootstrap Engineer atau Architect selama bootstrap.
 
 Admin demo tidak memiliki halaman login. Semua data admin harus berasal dari `DEMO_BUILDING_ID` server-side; Resident menyertakan `installationId` anonim saat membutuhkan persistensi profile/history.
+
+---
+
+## 2026-07-16 — Dependency D4 -> D3: endpoint floor-plan belum contract-shaped
+
+Ditemukan saat Domain 4 mengimplementasikan Admin Slice 3.
+
+| Endpoint | Bentuk sekarang | Bentuk frozen v1 | Dampak |
+|---|---|---|---|
+| `GET /api/admin/floor-plans` | `{"items": [], "message": "NOT_IMPLEMENTED"}` | `FloorPlan[]` | `adminApi.getFloorPlans()` melempar `VALIDATION_ERROR` |
+| `POST /api/admin/floor-plans` | `{"message": "NOT_IMPLEMENTED", "placeholder": true}` | `FloorPlan` | Upload tidak dapat diverifikasi end-to-end |
+| `POST /api/admin/locations` | `{"message": "NOT_IMPLEMENTED", "placeholder": true}` | `Location` | Create location tidak dapat diverifikasi |
+| `GET /api/admin/locations` | `LocationResponse[]` | `Location[]` | OK — QR flow dapat diintegrasikan sekarang |
+
+- Owner: Domain 3
+- Task: D3-003
+- Status: OPEN
+- Konsumen: Domain 4 Admin Slice 3
+- Catatan: Domain 4 membangun UI terhadap contract frozen + fixture `floor-plan.valid.json`. UI TIDAK menyesuaikan diri dengan bentuk placeholder; backend yang harus memenuhi contract.
+- Verifikasi: `adminApi.getFloorPlans()` mengembalikan array tanpa `VALIDATION_ERROR`.
