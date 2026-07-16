@@ -1,45 +1,21 @@
 from datetime import datetime
-from typing import Any, Literal
-from pydantic import Field
+from pydantic import Field, field_validator
 from app.schemas.common import CamelModel, Coordinate3D
 
 
 class SafetyMatrixCell(CamelModel):
     location_ref: str
-    failure_rate_percentage: float = Field(ge=0, le=100)
-    average_evacuation_time_ms: int = Field(ge=0)
-    sample_count: int = Field(ge=0)
-
-
-class EscapeRouteTrendPoint(CamelModel):
-    """Satu titik trend. `period` memakai ISO week: YYYY-Www (mis. 2026-W29)."""
-
-    period: str = Field(pattern=r"^\d{4}-W\d{2}$")
-    average_evacuation_time_ms: int = Field(ge=0)
+    failure_rate_percentage: float
+    average_evacuation_time_ms: int
+    sample_count: int
 
 
 class AnalyticsSummaryResponse(CamelModel):
-    """GET /api/admin/analytics — FROZEN v1 (architecture.md §8.6).
-
-    `escape_route_trends` sebelumnya bertipe list[dict] tanpa validasi, sehingga
-    Domain 4 dapat menerima bentuk trend apa pun tanpa terdeteksi contract test.
-    `building_id` diisi server dari DEMO_BUILDING_ID; client tidak mengirimnya.
-    """
-
     building_id: str
-    participation_rate_percentage: float = Field(ge=0, le=100)
-    average_shelter_time_ms: int = Field(ge=0)
-    escape_route_trends: list[EscapeRouteTrendPoint] = []
-    heatmap_cells: list[SafetyMatrixCell] = []
-
-
-class FloorPlanResponse(CamelModel):
-    id: str
-    building_id: str
-    name: str
-    file_url: str
-    metadata: dict[str, Any] | None = None
-    created_at: datetime
+    participation_rate_percentage: float
+    average_shelter_time_ms: int
+    escape_route_trends: list[dict] = Field(default_factory=list)
+    heatmap_cells: list[SafetyMatrixCell] = Field(default_factory=list)
 
 
 class LocationResponse(CamelModel):
@@ -49,7 +25,7 @@ class LocationResponse(CamelModel):
     location_ref: str
     label: str
     origin: Coordinate3D
-    route_points: list[Coordinate3D] = []
+    route_points: list[Coordinate3D] = Field(default_factory=list)
     exit_point: Coordinate3D
     created_at: datetime
 
@@ -62,23 +38,60 @@ class QrProvisionResponse(CamelModel):
 
 
 class ComplianceReportRequest(CamelModel):
-    """POST /api/admin/compliance-reports — FROZEN v1.
-
-    TIDAK memuat building_id. Server SELALU memakai DEMO_BUILDING_ID dari
-    settings dan mengabaikan scope building dari client (architecture.md §10.6,
-    §11). Field building_id dihapus pada freeze v1 karena memaksa Domain 4
-    mengirim field yang wajib ditolak Domain 3.
-    """
-
+    # Opsional dan diabaikan: create_report() memakai settings.demo_building_id
+    # (architecture.md §10.6/§11). Sebelumnya wajib, sehingga client dipaksa
+    # mengirim building scope yang justru dibuang server. Mengikuti pola
+    # LocationCreateRequest.building_id di file ini.
+    building_id: str | None = None
     period_from: datetime
     period_to: datetime
 
 
-ComplianceReportStatus = Literal["pending", "ready", "failed"]
-
-
 class ComplianceReportResponse(CamelModel):
     report_id: str
-    status: ComplianceReportStatus = "pending"
-    #: Terisi hanya ketika status == "ready".
+    status: str = "pending"
+
+
+class FloorPlanResponse(CamelModel):
+    id: str
+    building_id: str
+    name: str
+    file_url: str | None = None
+    metadata: dict = Field(default_factory=dict)
+    created_at: datetime
+
+
+class FloorPlanListResponse(CamelModel):
+    items: list[FloorPlanResponse] = Field(default_factory=list)
+
+
+class LocationCreateRequest(CamelModel):
+    building_id: str | None = None
+    floor_plan_id: str | None = None
+    location_ref: str
+    label: str
+    origin: Coordinate3D = Field(default_factory=Coordinate3D)
+    route_points: list[Coordinate3D]
+    exit_point: Coordinate3D
+
+    @field_validator("location_ref", "label")
+    @classmethod
+    def non_empty(cls, value: str) -> str:
+        value = value.strip()
+        if not value or len(value) > 160:
+            raise ValueError("value must contain 1-160 characters")
+        return value
+
+    @field_validator("route_points")
+    @classmethod
+    def route_size(cls, value: list[Coordinate3D]) -> list[Coordinate3D]:
+        if not 1 <= len(value) <= 100:
+            raise ValueError("routePoints must contain 1-100 points")
+        return value
+
+
+class ComplianceReportStatusResponse(CamelModel):
+    report_id: str
+    status: str
     download_url: str | None = None
+    generated_at: datetime | None = None

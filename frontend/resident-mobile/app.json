@@ -32,7 +32,9 @@
     },
     "plugins": [
       "expo-dev-client",
+      "expo-av",
       "expo-camera",
+      "expo-secure-store",
       ["expo-sensors", { "motionPermission": "Dibutuhkan untuk drill sensor." }]
     ],
     "extra": {

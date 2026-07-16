@@ -121,8 +121,11 @@ export const adminApi = {
   getLocations: (signal?: AbortSignal) =>
     request<Location[]>('/api/admin/locations', LocationListSchema, { signal }),
 
-  getFloorPlans: (signal?: AbortSignal) =>
-    request<FloorPlan[]>('/api/admin/floor-plans', FloorPlanListSchema, { signal }),
+  /** Server membungkus hasil dalam `items`; kembalikan array untuk pemanggil. */
+  getFloorPlans: async (signal?: AbortSignal): Promise<FloorPlan[]> => {
+    const res = await request('/api/admin/floor-plans', FloorPlanListSchema, { signal });
+    return res.items;
+  },
 
   generateQr: (locationId: string, signal?: AbortSignal) =>
     request<QrProvisionResponse>(

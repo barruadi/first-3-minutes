@@ -1,46 +1,14 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import LoadingState from '../../components/LoadingState';
-import { residentApi } from '../../services/apiClient';
+import React, { useCallback, useEffect, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Button from '../../components/Button'; import Card from '../../components/Card'; import EmptyState from '../../components/EmptyState'; import ErrorState from '../../components/ErrorState'; import LoadingState from '../../components/LoadingState';
+import { getInstallationId } from '../../services/installationIdentity'; import { residentApi, type RewardsResponse } from '../../services/apiClient'; import { theme } from '../../theme';
 
 export default function RewardsScreen() {
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        await residentApi.getRewards('resident-demo-001');
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Gagal memuat reward');
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, []);
-
+  const [data, setData] = useState<RewardsResponse | null>(null); const [loading, setLoading] = useState(true); const [refreshing, setRefreshing] = useState(false); const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async (refresh = false) => { refresh ? setRefreshing(true) : setLoading(true); setError(null); const controller = new AbortController(); try { setData(await residentApi.getRewards(await getInstallationId(), controller.signal)); } catch (e) { setError(e instanceof Error ? e.message : 'Gagal memuat reward.'); } finally { setLoading(false); setRefreshing(false); } return () => controller.abort(); }, []);
+  useEffect(() => { let cancel: (() => void) | undefined; void load().then((fn) => { cancel = fn; }); return () => cancel?.(); }, [load]);
   if (loading) return <LoadingState message="Memuat reward..." />;
-
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Reward Saya</Text>
-      {error && <Text style={styles.error}>{error}</Text>}
-      <View style={styles.placeholder}>
-        <Text style={styles.icon}>🏅</Text>
-        <Text style={styles.text}>Reward Anda akan muncul di sini</Text>
-        <Text style={styles.sub}>[Domain 1: Reward eligibility display, rolling 7-day cycle indicator]</Text>
-      </View>
-    </ScrollView>
-  );
+  if (error && !data) return <View style={styles.page}><ErrorState message={error} onRetry={() => void load()} /></View>;
+  return <ScrollView style={styles.page} contentContainerStyle={styles.content} refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} />}><Text style={styles.eyebrow}>REWARD KESELAMATAN</Text><Text style={styles.title}>Konsistensi yang dihargai</Text>{error && <ErrorState message={error} />}{data?.eligibility && <Card><Text style={styles.cardTitle}>{data.eligibility.eligible ? 'Reward tersedia' : 'Belum eligible'}</Text><Text style={styles.body}>{data.eligibility.eligible ? 'Selesaikan latihan untuk menerima reward.' : data.eligibility.nextEligibleAt ? `Dapat mencoba lagi ${new Date(data.eligibility.nextEligibleAt).toLocaleDateString('id-ID')}.` : 'Status ditentukan server setelah latihan.'}</Text></Card>}{!data?.rewards.length ? <EmptyState message="Belum ada reward" hint="Selesaikan latihan berkala. Eligibility dihitung oleh server dalam siklus tujuh hari." /> : data.rewards.map((reward) => <Card key={reward.id}><Text style={styles.cardTitle}>{reward.label}</Text><Text style={styles.body}>{new Date(reward.issuedAt).toLocaleDateString('id-ID')}</Text></Card>)}<Button label="Muat ulang" variant="secondary" onPress={() => void load(true)} /></ScrollView>;
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F3E4C9' },
-  content: { padding: 20, gap: 16 },
-  title: { color: '#0A2947', fontSize: 22, fontWeight: '700' },
-  error: { color: '#C62828', fontSize: 13 },
-  placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, minHeight: 300 },
-  icon: { fontSize: 48 },
-  text: { color: '#475665', fontSize: 14 },
-  sub: { color: '#475665', fontSize: 11, opacity: 0.7, textAlign: 'center' },
-});
+const styles = StyleSheet.create({ page: { flex: 1, backgroundColor: theme.colors.surfaceWarm }, content: { padding: 20, gap: 16 }, eyebrow: { color: theme.colors.accentEarth, fontWeight: '700', letterSpacing: 1.2, fontSize: 12 }, title: { color: theme.colors.primary900, fontSize: 30, fontWeight: '700' }, cardTitle: { color: theme.colors.primary900, fontSize: 18, fontWeight: '700' }, body: { color: theme.colors.textSecondary, marginTop: 6, lineHeight: 21 } });

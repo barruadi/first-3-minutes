@@ -10,7 +10,7 @@
     "nextEligibleAt": "2026-07-23T00:00:01Z",
     "lastIssuedAt": "2026-07-16T00:00:01Z"
   },
-  "locationStatus": "Rumah — Lantai 4, Kamar 402",
+  "locationStatus": "Siap untuk latihan",
   "lastDrill": {
     "drillId": "drill-demo-001",
     "scanId": "scan-demo-001",
@@ -19,12 +19,8 @@
     "postureScorePercentage": 91,
     "safetyRating": 92,
     "tier": "Platinum",
-    "completedAt": "2026-07-16T00:00:01Z"
+    "rewardEligible": true,
+    "createdAt": "2026-07-16T00:00:01Z"
   },
-  "spatialReadiness": {
-    "hasSpatialMap": true,
-    "scanId": "scan-demo-001",
-    "source": "gemini",
-    "createdAt": "2026-07-16T00:00:00Z"
-  }
+  "spatialReadiness": "ready"
 }

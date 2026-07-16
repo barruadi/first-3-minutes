@@ -1,5 +1,21 @@
 # Changelog dan Decision Log — 3MINUTES
 
+## 2026-07-16 — Domain 3 backend implementation
+
+- Type: ARCHITECTURE | SECURITY | INTEGRATION
+- Author/role: Domain 3 Coder
+- Status: ACCEPTED
+- Related tasks: Spatial AI, rating, resident reads, analytics, floor/location, QR/guest, PDF
+- Context: Bootstrap routes and fixtures were replaced with database-backed implementation.
+- Decision/change: Rating uses configurable weights 35/35/30, Platinum >=85, Gold >=70; Gemini uses official `google-genai` with default `gemini-3.5-flash`; admin scope remains server-side `DEMO_BUILDING_ID`; QR persists only a SHA-256 token hash.
+- Reason summary: Complete demo critical paths while preserving camelCase contracts and anonymous identity.
+- Impact Domain 1: Multipart fields are `scanId`, `installationId`, optional `locationId`, and exactly 15 JPEG files under `images`.
+- Impact Domain 2: Completion sends existing `DrillMetrics`; rating/reward are server results.
+- Impact Domain 3: Recreate the development schema once because bootstrap tables gained fields and indexes.
+- Impact Domain 4: Admin endpoints now return real data/files; generated Guest URLs resolve real opaque tokens.
+- Migration/action required: For an old demo database run `python -m app.fixtures.reset`; configure `QR_TOKEN_SECRET`, `GUEST_BASE_URL`, and optionally `GEMINI_API_KEY`.
+- Verification: SQLite API/unit suite 24 passed; live PostgreSQL/Gemini/device checks remain.
+
 ## Tujuan
 
 Dokumen ini mencatat perubahan yang perlu diketahui lintas agent:
@@ -187,6 +203,22 @@ Architect harus mengisi keputusan berikut setelah repository/device inspection:
 - Impact Domain 4: Hapus login/protected route; Admin langsung membuka dashboard demo.
 - Migration/action required: Kontrak, migration, fixture, dan QA tidak boleh membuat route/token auth.
 - Verification: Bootstrap check dan contract tests setelah implementasi.
+
+## 2026-07-16 — Domain 1 resident scan and read-model implementation
+
+- Type: INTEGRATION
+- Author/role: Coder Domain 1
+- Status: ACCEPTED
+- Related tasks: D1 scan pipeline, resident home, rewards, history, accessibility adapter
+- Context: Bootstrap mobile screens were placeholders and used a hard-coded demo resident identity.
+- Decision/change: Domain 1 now persists an anonymous installation ID, calls the existing `/api` contracts, validates spatial/rating responses, and hands a validated in-memory SpatialMap to Domain 2. Scan processing uses 15 target timestamps from 3,000 through 45,000 ms and retains all 15 frames while enforcing a 4 MB aggregate budget.
+- Reason summary: Implements the resident-owned vertical slices without moving rating/reward decisions to the client or changing frozen shared contracts.
+- Impact Domain 1: Real camera/file/TTS pipeline and production-like data states are available pending device verification.
+- Impact Domain 2: Consume `spatialSession` and `accessibilityGuidance`; no navigation ownership change.
+- Impact Domain 3: Mobile targets the frozen `/api` surface; real rewards/history data remains a backend dependency.
+- Impact Domain 4: None.
+- Migration/action required: Run npm install to produce/update the single root lockfile, then typecheck/Jest and test on the iPhone Development Build.
+- Verification: `git diff --check` passed; dependency install and device verification remain open and are not claimed.
 
 ---
 

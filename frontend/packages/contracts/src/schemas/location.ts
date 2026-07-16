@@ -50,14 +50,19 @@ export const FloorPlanSchema = z.object({
   id: z.string(),
   buildingId: z.string(),
   name: z.string(),
-  fileUrl: z.string(),
-  metadata: z.record(z.unknown()).nullable(),
+  fileUrl: z.string().nullable(),
+  metadata: z.record(z.unknown()).default({}),
   createdAt: z.string().datetime(),
 });
 export type FloorPlan = z.infer<typeof FloorPlanSchema>;
 
-/** GET /api/admin/floor-plans mengembalikan array. */
-export const FloorPlanListSchema = z.array(FloorPlanSchema);
+/**
+ * GET /api/admin/floor-plans membungkus hasil dalam `items`, bukan array
+ * telanjang — menyesuaikan FloorPlanListResponse milik Domain 3.
+ */
+export const FloorPlanListSchema = z.object({
+  items: z.array(FloorPlanSchema),
+});
 export type FloorPlanList = z.infer<typeof FloorPlanListSchema>;
 
 /**
@@ -74,17 +79,25 @@ export const ComplianceReportRequestSchema = z.object({
 });
 export type ComplianceReportRequest = z.infer<typeof ComplianceReportRequestSchema>;
 
-export const ComplianceReportStatusSchema = z.enum([
-  'pending',
-  'ready',
-  'failed',
-]);
+/**
+ * Status divalidasi longgar sebagai string: Domain 3 mengetikkannya `str`,
+ * sehingga enum ketat di client akan menolak status baru yang sah.
+ */
+export const ComplianceReportStatusSchema = z.string();
 export type ComplianceReportStatus = z.infer<typeof ComplianceReportStatusSchema>;
 
+/** POST /api/admin/compliance-reports (201) — belum memuat downloadUrl. */
 export const ComplianceReportResponseSchema = z.object({
   reportId: z.string(),
   status: ComplianceReportStatusSchema,
-  /** Tersedia hanya ketika status='ready'. */
-  downloadUrl: z.string().nullable(),
 });
 export type ComplianceReportResponse = z.infer<typeof ComplianceReportResponseSchema>;
+
+/** GET /api/admin/compliance-reports/{id} — status lengkap dengan file. */
+export const ComplianceReportStatusResponseSchema = z.object({
+  reportId: z.string(),
+  status: ComplianceReportStatusSchema,
+  downloadUrl: z.string().nullable(),
+  generatedAt: z.string().datetime().nullable(),
+});
+export type ComplianceReportStatusResponse = z.infer<typeof ComplianceReportStatusResponseSchema>;

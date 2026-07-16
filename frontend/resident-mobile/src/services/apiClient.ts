@@ -1,41 +1,58 @@
-import type { ResidentProfile, SpatialMap, DrillMetrics, DrillCompletionResponse } from '@3minutes/contracts';
+import {
+  DrillCompletionResponseSchema, ResidentProfileSchema, SpatialMapSchema,
+  type DrillMetrics, type ResidentProfile, type SpatialMap, type DrillCompletionResponse,
+} from '@3minutes/contracts';
 
 const BASE_URL = process.env['EXPO_PUBLIC_API_BASE_URL'] ?? 'http://localhost:8000';
+const API = '/api';
 
-async function request<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    headers: { 'Content-Type': 'application/json', ...options?.headers },
-    ...options,
-  });
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({ error: { code: 'UNKNOWN', message: res.statusText, details: null } }));
-    throw Object.assign(new Error(body?.error?.message ?? res.statusText), { apiError: body });
-  }
-  return res.json() as Promise<T>;
+export class ApiClientError extends Error {
+  constructor(message: string, readonly code: string, readonly status: number, readonly retryable: boolean) { super(message); }
 }
 
+async function request<T>(path: string, parser: (value: unknown) => T, options: RequestInit = {}): Promise<T> {
+  try {
+    const res = await fetch(`${BASE_URL}${API}${path}`, {
+      ...options,
+      headers: options.body instanceof FormData ? options.headers : { 'Content-Type': 'application/json', ...options.headers },
+    });
+    const body: unknown = await res.json().catch(() => null);
+    if (!res.ok) {
+      const envelope = body as { error?: { code?: string; message?: string }; detail?: { error?: { code?: string; message?: string } } } | null;
+      const error = envelope?.error ?? envelope?.detail?.error;
+      const timeout = res.status === 504;
+      throw new ApiClientError(error?.message ?? (timeout ? 'Analisis ruangan melewati batas waktu.' : 'Permintaan gagal.'), error?.code ?? (timeout ? 'AI_TIMEOUT' : 'HTTP_ERROR'), res.status, timeout || res.status >= 500);
+    }
+    return parser(body);
+  } catch (error) {
+    if (error instanceof ApiClientError) throw error;
+    if (error instanceof Error && error.name === 'AbortError') throw error;
+    throw new ApiClientError('Tidak dapat terhubung ke server. Periksa jaringan lalu coba lagi.', 'NETWORK_ERROR', 0, true);
+  }
+}
+
+export type RewardRecord = { id: string; label: string; issuedAt: string };
+export type RewardsResponse = { rewards: RewardRecord[]; eligibility?: ResidentProfile['rewardEligibility']; message?: string };
+export type HistoryItem = { drillId: string; reactionTimeMs: number; evacuationTimeMs: number; postureScorePercentage: number; recordedAt: string };
+export type HistoryResponse = { items: HistoryItem[]; nextCursor: string | null; message?: string };
+
 export const residentApi = {
-  getHome: (installationId: string) =>
-    request<ResidentProfile>(`/api/resident/home?installationId=${encodeURIComponent(installationId)}`),
-
-  uploadScan: (formData: FormData) =>
-    fetch(`${BASE_URL}/api/scans/spatial-map`, {
-      method: 'POST',
-      body: formData,
-    }).then(async (res) => {
-      if (!res.ok) throw new Error('Upload gagal');
-      return res.json() as Promise<SpatialMap>;
-    }),
-
-  completeDrill: (drillId: string, metrics: DrillMetrics) =>
-    request<DrillCompletionResponse>(`/api/drills/${encodeURIComponent(drillId)}/complete`, {
-      method: 'POST',
-      body: JSON.stringify(metrics),
-    }),
-
-  getRewards: (installationId: string) =>
-    request<unknown>(`/api/resident/rewards?installationId=${encodeURIComponent(installationId)}`),
-
-  getHistory: (installationId: string, limit = 20) =>
-    request<unknown>(`/api/resident/history?installationId=${encodeURIComponent(installationId)}&limit=${limit}`),
+  getHome: (installationId: string, signal?: AbortSignal) => request(`/resident/home?installationId=${encodeURIComponent(installationId)}`, (data) => ResidentProfileSchema.parse(data), { signal }),
+  uploadScan: (formData: FormData, signal?: AbortSignal) => request('/scans/spatial-map', (data) => SpatialMapSchema.parse(data), { method: 'POST', body: formData, signal }),
+  completeDrill: (drillId: string, metrics: DrillMetrics, signal?: AbortSignal) => request(`/drills/${encodeURIComponent(drillId)}/complete`, (data) => DrillCompletionResponseSchema.parse(data), { method: 'POST', body: JSON.stringify(metrics), signal }),
+  getRewards: (installationId: string, signal?: AbortSignal) => request<RewardsResponse>(`/resident/rewards?installationId=${encodeURIComponent(installationId)}`, parseRewards, { signal }),
+  getHistory: (installationId: string, limit = 20, signal?: AbortSignal) => request<HistoryResponse>(`/resident/history?installationId=${encodeURIComponent(installationId)}&limit=${limit}`, parseHistory, { signal }),
 };
+
+function parseRewards(value: unknown): RewardsResponse {
+  const data = value as Partial<RewardsResponse>;
+  if (!data || !Array.isArray(data.rewards)) throw new Error('Response reward tidak valid');
+  return { rewards: data.rewards, eligibility: data.eligibility, message: data.message };
+}
+function parseHistory(value: unknown): HistoryResponse {
+  const data = value as Partial<HistoryResponse>;
+  if (!data || !Array.isArray(data.items)) throw new Error('Response riwayat tidak valid');
+  return { items: data.items, nextCursor: data.nextCursor ?? null, message: data.message };
+}
+
+export type { SpatialMap, DrillCompletionResponse };

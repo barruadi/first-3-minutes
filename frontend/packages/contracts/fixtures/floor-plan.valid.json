@@ -3,6 +3,6 @@
   "buildingId": "building-demo-001",
   "name": "Lantai 4 — Denah Utama",
   "fileUrl": "/api/admin/floor-plans/floorplan-demo-001/file",
-  "metadata": { "widthPx": 1920, "heightPx": 1080, "scaleMetersPerPx": 0.02 },
+  "metadata": { "widthPx": 1920, "heightPx": 1080 },
   "createdAt": "2026-07-16T00:00:00Z"
 }

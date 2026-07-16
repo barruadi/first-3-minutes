@@ -16,19 +16,23 @@ export const SpatialMapBaseSchema = z.object({
 });
 
 /**
- * SpatialMap — FROZEN v1.
- * Sumber: prompts/docs/architecture.md §8.3.
+ * SpatialMap — bentuk wire, mengikuti SpatialMapResponse milik Domain 3.
  *
- * Minimum satu safe zone dan satu exit point WAJIB dipenuhi agar drill dapat
- * berjalan. Bila Gemini tidak menghasilkan minimum ini, Domain 3 menerapkan
- * fallback (source='fallback'); response tetap memenuhi schema yang sama.
- * Domain 2 karena itu boleh mengasumsikan kedua array tidak kosong.
+ * Schema ini sengaja TIDAK memaksakan minimum safe/exit. Backend tidak
+ * menjaminnya di tingkat schema, sehingga client yang lebih ketat akan menolak
+ * response yang dianggap sah oleh server dan menjatuhkan Domain 1/2.
  */
-export const SpatialMapSchema = SpatialMapBaseSchema.refine(
-  (map) => map.safeZones.length >= 1,
-  { message: 'SpatialMap membutuhkan minimal satu safeZone agar drill dapat berjalan', path: ['safeZones'] }
-).refine(
-  (map) => map.exitPoints.length >= 1,
-  { message: 'SpatialMap membutuhkan minimal satu exitPoint agar drill dapat berjalan', path: ['exitPoints'] }
-);
+export const SpatialMapSchema = SpatialMapBaseSchema;
 export type SpatialMap = z.infer<typeof SpatialMapSchema>;
+
+/**
+ * Guard terpisah untuk kesiapan drill (architecture.md §8.3: minimal satu safe
+ * zone dan satu exit point). Domain 2 memanggil ini sebelum memulai drill,
+ * bukan saat parsing response.
+ *
+ * OPEN: apakah minimum ini dijamin server (fallback) atau diperiksa client
+ * masih menunggu keputusan Architect — lihat integration.md.
+ */
+export function isDrillReady(map: SpatialMap): boolean {
+  return map.safeZones.length >= 1 && map.exitPoints.length >= 1;
+}

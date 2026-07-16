@@ -4,6 +4,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import {
   SpatialMapSchema,
+  isDrillReady,
   DrillMetricsSchema,
   DrillCompletionResponseSchema,
   DrillOutcomeSchema,
@@ -39,16 +40,20 @@ describe('SpatialMap contract', () => {
     expect(SpatialMapSchema.safeParse(loadFixture('spatial-map.invalid.json')).success).toBe(false);
   });
 
-  // architecture.md §8.3: minimum satu safe zone dan satu exit point.
-  it('rejects a map with no safe zone even when otherwise well-formed', () => {
+  // Minimum safe/exit adalah kesiapan drill, bukan validitas wire.
+  it('still parses a map with no safe zone, matching the backend schema', () => {
     const result = SpatialMapSchema.safeParse(loadFixture('spatial-map.no-safe-zone.invalid.json'));
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 
-  it('rejects a map with no exit point', () => {
-    const base = loadFixture('spatial-map.valid.json');
-    const result = SpatialMapSchema.safeParse({ ...base, exitPoints: [] });
-    expect(result.success).toBe(false);
+  it('reports a map with no safe zone as not drill-ready', () => {
+    const map = SpatialMapSchema.parse(loadFixture('spatial-map.no-safe-zone.invalid.json'));
+    expect(isDrillReady(map)).toBe(false);
+  });
+
+  it('reports a complete map as drill-ready', () => {
+    const map = SpatialMapSchema.parse(loadFixture('spatial-map.valid.json'));
+    expect(isDrillReady(map)).toBe(true);
   });
 });
 
@@ -124,7 +129,7 @@ describe('ResidentHome contract', () => {
     expect(result.success).toBe(true);
     if (result.success) {
       expect(result.data.lastDrill).not.toBeNull();
-      expect(result.data.spatialReadiness.hasSpatialMap).toBe(true);
+      expect(result.data.spatialReadiness).toBe('ready');
     }
   });
 
@@ -135,7 +140,7 @@ describe('ResidentHome contract', () => {
       rewardEligibility: { eligible: true, nextEligibleAt: null, lastIssuedAt: null },
       locationStatus: null,
       lastDrill: null,
-      spatialReadiness: { hasSpatialMap: false, scanId: null, source: null, createdAt: null },
+      spatialReadiness: 'needs_scan',
     });
     expect(result.success).toBe(true);
   });
