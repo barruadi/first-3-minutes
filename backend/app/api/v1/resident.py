@@ -1,32 +1,34 @@
-from datetime import datetime
-from fastapi import APIRouter, Query
-from app.schemas.resident import ResidentHomeResponse, SafetyRating, RewardEligibility
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.schemas.resident import ResidentHistoryResponse, ResidentHomeResponse, ResidentRewardsResponse
+from app.services.resident import get_history, get_home, get_rewards
 
 router = APIRouter(prefix="/resident", tags=["resident"])
 
 
 @router.get("/home", response_model=ResidentHomeResponse)
-def get_resident_home(installation_id: str = Query(...)):
-    # Placeholder: Domain 3 implements full data fetch
-    return ResidentHomeResponse(
-        installation_id=installation_id,
-        safety_rating=SafetyRating(score=0.0, tier="Silver", last_drill_at=None),
-        reward_eligibility=RewardEligibility(eligible=False, next_eligible_at=None, last_issued_at=None),
-        location_status=None,
-    )
-
-
-@router.get("/rewards")
-def get_resident_rewards(installation_id: str = Query(...)):
-    # 501: Domain 3 placeholder
-    return {"message": "NOT_IMPLEMENTED", "installationId": installation_id, "rewards": []}
-
-
-@router.get("/history")
-def get_resident_history(
-    installation_id: str = Query(...),
-    limit: int = Query(default=20, le=100),
-    cursor: str | None = Query(default=None),
+def resident_home(
+    installation_id: str = Query(..., alias="installationId"),
+    db: Session = Depends(get_db),
 ):
-    # 501: Domain 3 placeholder
-    return {"message": "NOT_IMPLEMENTED", "items": [], "nextCursor": None}
+    return get_home(db, installation_id)
+
+
+@router.get("/rewards", response_model=ResidentRewardsResponse)
+def resident_rewards(
+    installation_id: str = Query(..., alias="installationId"),
+    db: Session = Depends(get_db),
+):
+    return get_rewards(db, installation_id)
+
+
+@router.get("/history", response_model=ResidentHistoryResponse)
+def resident_history(
+    installation_id: str = Query(..., alias="installationId"),
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return get_history(db, installation_id, limit, cursor)

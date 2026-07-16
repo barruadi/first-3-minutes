@@ -1,98 +1,92 @@
-from fastapi import APIRouter, UploadFile, File
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
 from app.schemas.admin import (
-    AnalyticsSummaryResponse, SafetyMatrixCell,
-    LocationResponse, QrProvisionResponse,
-    ComplianceReportRequest, ComplianceReportResponse,
+    AnalyticsSummaryResponse,
+    ComplianceReportRequest,
+    ComplianceReportResponse,
+    ComplianceReportStatusResponse,
+    FloorPlanListResponse,
+    FloorPlanResponse,
+    LocationCreateRequest,
+    LocationResponse,
+    QrProvisionResponse,
 )
-from app.schemas.common import Coordinate3D
-from app.core.config import settings
-from datetime import datetime
+from app.services import admin as admin_service
+from app.services import compliance as compliance_service
+from app.services import qr as qr_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 @router.get("/analytics", response_model=AnalyticsSummaryResponse)
-def get_analytics():
-    # Demo fixture; Domain 3 implements real aggregation
-    return AnalyticsSummaryResponse(
-        building_id=settings.demo_building_id,
-        participation_rate_percentage=85.0,
-        average_shelter_time_ms=12100,
-        escape_route_trends=[{"period": "2026-W29", "averageEvacuationTimeMs": 64000}],
-        heatmap_cells=[
-            SafetyMatrixCell(
-                location_ref="floor-4-room-402",
-                failure_rate_percentage=15.0,
-                average_evacuation_time_ms=73200,
-                sample_count=20,
-            )
-        ],
-    )
+def get_analytics(
+    building_id: str | None = Query(default=None, alias="buildingId"),
+    db: Session = Depends(get_db),
+):
+    # buildingId is intentionally ignored; scope always comes from DEMO_BUILDING_ID.
+    return admin_service.get_analytics(db)
 
 
-@router.post("/floor-plans")
-def create_floor_plan(file: UploadFile = File(...)):
-    return {"message": "NOT_IMPLEMENTED", "placeholder": True}
+@router.post("/floor-plans", response_model=FloorPlanResponse, status_code=201)
+async def create_floor_plan(
+    file: UploadFile = File(...),
+    name: str | None = Form(default=None),
+    db: Session = Depends(get_db),
+):
+    return await admin_service.create_floor_plan(db, file, name)
 
 
-@router.get("/floor-plans")
-def list_floor_plans():
-    return {"items": [], "message": "NOT_IMPLEMENTED"}
+@router.get("/floor-plans", response_model=FloorPlanListResponse)
+def list_floor_plans(db: Session = Depends(get_db)):
+    return FloorPlanListResponse(items=admin_service.list_floor_plans(db))
 
 
-@router.get("/floor-plans/{floor_plan_id}")
-def get_floor_plan(floor_plan_id: str):
-    return {"id": floor_plan_id, "message": "NOT_IMPLEMENTED"}
+@router.get("/floor-plans/{floor_plan_id}", response_model=FloorPlanResponse)
+def get_floor_plan(floor_plan_id: str, db: Session = Depends(get_db)):
+    return admin_service.get_floor_plan(db, floor_plan_id)
 
 
-@router.post("/locations")
-def create_location(body: dict):
-    return {"message": "NOT_IMPLEMENTED", "placeholder": True}
+@router.get("/floor-plans/{floor_plan_id}/file")
+def download_floor_plan(floor_plan_id: str, db: Session = Depends(get_db)):
+    path, media_type = admin_service.floor_plan_file(db, floor_plan_id)
+    return FileResponse(path, media_type=media_type, filename=path.name)
+
+
+@router.post("/locations", response_model=LocationResponse, status_code=201)
+def create_location(body: LocationCreateRequest, db: Session = Depends(get_db)):
+    return admin_service.create_location(db, body)
 
 
 @router.get("/locations", response_model=list[LocationResponse])
-def list_locations():
-    # Demo fixture
-    return [
-        LocationResponse(
-            id="loc-demo-001",
-            building_id=settings.demo_building_id,
-            floor_plan_id="floorplan-demo-001",
-            location_ref="floor-4-room-402",
-            label="Lantai 4 Ruang 402",
-            origin=Coordinate3D(x=0, y=0, z=0),
-            route_points=[Coordinate3D(x=0, y=0, z=-1.5), Coordinate3D(x=1.2, y=0, z=-3.0)],
-            exit_point=Coordinate3D(x=2.1, y=0, z=-5.0),
-            created_at=datetime(2026, 7, 16),
-        )
-    ]
+def list_locations(db: Session = Depends(get_db)):
+    return admin_service.list_locations(db)
 
 
-@router.post("/locations/{location_id}/rescue-qr", response_model=QrProvisionResponse)
-def generate_rescue_qr(location_id: str):
-    # Placeholder: Domain 3 implements real QR cryptography
-    base_url = "https://guest.example"
-    token = f"demo-token-{location_id}"
-    return QrProvisionResponse(
-        location_id=location_id,
-        guest_url=f"{base_url}/rescue/{token}",
-        qr_svg_url=f"/api/admin/qr/{token}.svg",
-        qr_png_url=f"/api/admin/qr/{token}.png",
-    )
+@router.post("/locations/{location_id}/rescue-qr", response_model=QrProvisionResponse, status_code=201)
+def generate_rescue_qr(location_id: str, db: Session = Depends(get_db)):
+    return qr_service.generate_qr(db, location_id)
 
 
-@router.post("/compliance-reports", response_model=ComplianceReportResponse)
-def create_compliance_report(body: ComplianceReportRequest):
-    # Placeholder: Domain 3 implements PDF generation
-    return ComplianceReportResponse(report_id="report-demo-001", status="pending")
+@router.get("/qr/{qr_id}.{extension}")
+def download_qr(qr_id: str, extension: str, db: Session = Depends(get_db)):
+    path, media_type = qr_service.qr_file(db, qr_id, extension)
+    return FileResponse(path, media_type=media_type, filename=path.name)
 
 
-@router.get("/compliance-reports/{report_id}")
-def get_compliance_report(report_id: str):
-    return {"reportId": report_id, "status": "pending", "message": "NOT_IMPLEMENTED"}
+@router.post("/compliance-reports", response_model=ComplianceReportResponse, status_code=201)
+def create_compliance_report(body: ComplianceReportRequest, db: Session = Depends(get_db)):
+    return compliance_service.create_report(db, body)
+
+
+@router.get("/compliance-reports/{report_id}", response_model=ComplianceReportStatusResponse)
+def get_compliance_report(report_id: str, db: Session = Depends(get_db)):
+    return compliance_service.get_report(db, report_id)
 
 
 @router.get("/compliance-reports/{report_id}/download")
-def download_compliance_report(report_id: str):
-    from fastapi.responses import JSONResponse
-    return JSONResponse({"error": {"code": "NOT_IMPLEMENTED", "message": "PDF generation not yet implemented", "details": None}}, status_code=501)
+def download_compliance_report(report_id: str, db: Session = Depends(get_db)):
+    path = compliance_service.report_file(db, report_id)
+    return FileResponse(path, media_type="application/pdf", filename=f"3minutes-compliance-{report_id}.pdf")

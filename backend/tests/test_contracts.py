@@ -7,7 +7,7 @@ from app.schemas.drill import DrillMetricsRequest
 from app.schemas.guest import GuestRouteResponse
 from app.schemas.admin import AnalyticsSummaryResponse
 
-FIXTURES_DIR = Path(__file__).resolve().parents[3] / "frontend" / "packages" / "contracts" / "fixtures"
+FIXTURES_DIR = Path(__file__).resolve().parents[2] / "frontend" / "packages" / "contracts" / "fixtures"
 
 
 def load(name: str) -> dict:
