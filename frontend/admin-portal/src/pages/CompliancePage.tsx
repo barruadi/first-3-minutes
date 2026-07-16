@@ -1,67 +1,180 @@
-import React, { useState } from 'react';
-import { adminApi } from '../services/api.js';
+import React, { useCallback, useRef, useState } from 'react';
+import { adminApi, AdminApiError } from '../services/api.js';
+
+const PDF_BUDGET_MS = 3000;
+
+/** Default periode demo: 30 hari terakhir. */
+function defaultPeriod() {
+  const to = new Date();
+  const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+type ExportState =
+  | { status: 'idle' }
+  | { status: 'creating' }
+  | { status: 'downloading' }
+  | { status: 'done'; reportId: string; durationMs: number }
+  | { status: 'error'; message: string };
 
 export default function CompliancePage() {
-  const [generating, setGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [reportId, setReportId] = useState<string | null>(null);
+  const initial = defaultPeriod();
+  const [from, setFrom] = useState(initial.from);
+  const [to, setTo] = useState(initial.to);
+  const [state, setState] = useState<ExportState>({ status: 'idle' });
+  const abortRef = useRef<AbortController | null>(null);
 
-  async function exportPdf() {
-    setGenerating(true);
-    setError(null);
+  const periodInvalid = new Date(from) > new Date(to);
+
+  const exportPdf = useCallback(async () => {
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    // Acceptance PRD §8.5: download selesai <= 3 detik pada dataset demo.
+    // Diukur dari klik sampai file tersaji ke browser, bukan hanya request create.
+    const started = performance.now();
+    setState({ status: 'creating' });
+
     try {
-      const now = new Date().toISOString();
-      const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      const result = await adminApi.exportCompliance({
-        buildingId: 'building-demo-001',
-        periodFrom: monthAgo,
-        periodTo: now,
-      });
-      setReportId(result.reportId);
+      const report = await adminApi.createComplianceReport(
+        {
+          // TIDAK mengirim buildingId — server memakai DEMO_BUILDING_ID (ADR-004).
+          periodFrom: new Date(`${from}T00:00:00Z`).toISOString(),
+          periodTo: new Date(`${to}T23:59:59Z`).toISOString(),
+        },
+        controller.signal
+      );
+
+      if (controller.signal.aborted) return;
+      setState({ status: 'downloading' });
+
+      const blob = await adminApi.downloadComplianceReport(report.reportId, controller.signal);
+      if (controller.signal.aborted) return;
+
+      triggerDownload(blob, `kepatuhan-${from}-sd-${to}.pdf`);
+
+      const durationMs = performance.now() - started;
+      if (import.meta.env.DEV) {
+        const verdict = durationMs <= PDF_BUDGET_MS ? 'OK' : 'MELEBIHI BUDGET';
+        console.info(
+          `[perf] compliance_pdf ${durationMs.toFixed(0)}ms (budget ${PDF_BUDGET_MS}ms) — ${verdict}`
+        );
+      }
+      setState({ status: 'done', reportId: report.reportId, durationMs });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Gagal membuat laporan');
-    } finally {
-      setGenerating(false);
+      if (controller.signal.aborted) return;
+      const message =
+        e instanceof AdminApiError && e.code === 'PDF_GENERATION_FAILED'
+          ? 'Laporan kepatuhan gagal dibuat di server.'
+          : e instanceof Error
+            ? e.message
+            : 'Gagal membuat laporan';
+      setState({ status: 'error', message });
     }
-  }
+  }, [from, to]);
+
+  const busy = state.status === 'creating' || state.status === 'downloading';
 
   return (
     <div>
       <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 24 }}>Laporan Kepatuhan</h1>
-      <div style={{ background: 'var(--color-surface-white)', borderRadius: 8, padding: 24, border: '1px solid var(--color-border)', marginBottom: 24 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Export PDF Kepatuhan</h2>
+
+      <div style={card}>
+        <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Export PDF Kepatuhan</h2>
         <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 16 }}>
-          Ekspor laporan kepatuhan untuk bangunan demo periode 30 hari terakhir.
+          Laporan dibuat server-side untuk gedung demo. Pilih periode lalu unduh.
         </p>
+
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 16 }}>
+          <Field label="Dari tanggal">
+            <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} style={input} />
+          </Field>
+          <Field label="Sampai tanggal">
+            <input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} style={input} />
+          </Field>
+        </div>
+
+        {periodInvalid && (
+          <p style={{ color: 'var(--color-error)', fontSize: 13, marginBottom: 12 }}>
+            Tanggal mulai tidak boleh melebihi tanggal akhir.
+          </p>
+        )}
+
         <button
           onClick={() => void exportPdf()}
-          disabled={generating}
+          disabled={busy || periodInvalid}
           style={{
             padding: '10px 20px',
             background: 'var(--color-primary-900)',
             color: '#fff',
             border: 'none',
             borderRadius: 6,
-            cursor: generating ? 'not-allowed' : 'pointer',
+            cursor: busy || periodInvalid ? 'not-allowed' : 'pointer',
             fontSize: 14,
-            opacity: generating ? 0.7 : 1,
+            opacity: busy || periodInvalid ? 0.6 : 1,
           }}
         >
-          {generating ? 'Membuat laporan...' : 'Export PDF'}
+          {state.status === 'creating'
+            ? 'Membuat laporan...'
+            : state.status === 'downloading'
+              ? 'Mengunduh...'
+              : 'Export PDF'}
         </button>
-        {error && <div style={{ color: 'var(--color-error)', marginTop: 8, fontSize: 13 }}>{error}</div>}
-        {reportId && (
-          <div style={{ marginTop: 12 }}>
-            <a
-              href={`${import.meta.env['VITE_ADMIN_API_BASE_URL'] ?? 'http://localhost:8000'}/api/admin/compliance-reports/${reportId}/download`}
-              download
-              style={{ color: 'var(--color-info)', fontWeight: 600, fontSize: 14 }}
-            >
-              Unduh laporan #{reportId}
-            </a>
-          </div>
-        )}
+
+        <div aria-live="polite" style={{ marginTop: 12, minHeight: 20 }}>
+          {state.status === 'error' && (
+            <span style={{ color: 'var(--color-error)', fontSize: 13 }}>{state.message}</span>
+          )}
+          {state.status === 'done' && (
+            <span style={{ color: 'var(--color-success)', fontSize: 13 }}>
+              Laporan #{state.reportId} terunduh dalam {(state.durationMs / 1000).toFixed(1)}s.
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+
+/**
+ * Blob -> unduhan browser. Object URL wajib direvoke; tanpa itu blob PDF
+ * tertahan di memori selama halaman hidup.
+ */
+function triggerDownload(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>{label}</span>
+      {children}
+    </label>
+  );
+}
+
+const card: React.CSSProperties = {
+  background: 'var(--color-surface-white)',
+  borderRadius: 8,
+  padding: 24,
+  border: '1px solid var(--color-border)',
+  marginBottom: 24,
+};
+
+const input: React.CSSProperties = {
+  padding: '8px 10px',
+  border: '1px solid var(--color-border)',
+  borderRadius: 6,
+  fontSize: 14,
+  font: 'inherit',
+  color: 'var(--color-text-primary)',
+  background: 'var(--color-surface-white)',
+};
