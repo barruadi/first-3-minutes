@@ -23,6 +23,10 @@ export const LocationSchema = z.object({
 });
 export type Location = z.infer<typeof LocationSchema>;
 
+/** GET /api/admin/locations mengembalikan array. */
+export const LocationListSchema = z.array(LocationSchema);
+export type LocationList = z.infer<typeof LocationListSchema>;
+
 export const QrProvisionResponseSchema = z.object({
   locationId: z.string(),
   guestUrl: z.string().url(),
@@ -41,9 +45,59 @@ export const GuestRouteSchema = z.object({
 });
 export type GuestRoute = z.infer<typeof GuestRouteSchema>;
 
-export const ComplianceReportRequestSchema = z.object({
+/** Floor plan yang diunggah Admin (architecture.md §12.9). */
+export const FloorPlanSchema = z.object({
+  id: z.string(),
   buildingId: z.string(),
+  name: z.string(),
+  fileUrl: z.string().nullable(),
+  metadata: z.record(z.unknown()).default({}),
+  createdAt: z.string().datetime(),
+});
+export type FloorPlan = z.infer<typeof FloorPlanSchema>;
+
+/**
+ * GET /api/admin/floor-plans membungkus hasil dalam `items`, bukan array
+ * telanjang — menyesuaikan FloorPlanListResponse milik Domain 3.
+ */
+export const FloorPlanListSchema = z.object({
+  items: z.array(FloorPlanSchema),
+});
+export type FloorPlanList = z.infer<typeof FloorPlanListSchema>;
+
+/**
+ * POST /api/admin/compliance-reports — FROZEN v1.
+ *
+ * TIDAK memuat buildingId. Server SELALU memakai DEMO_BUILDING_ID dari
+ * settings dan mengabaikan scope building dari client (architecture.md §10.6,
+ * §11). Field buildingId dihapus pada freeze v1 karena contract sebelumnya
+ * memaksa Domain 4 mengirim field yang wajib ditolak Domain 3.
+ */
+export const ComplianceReportRequestSchema = z.object({
   periodFrom: z.string().datetime(),
   periodTo: z.string().datetime(),
 });
 export type ComplianceReportRequest = z.infer<typeof ComplianceReportRequestSchema>;
+
+/**
+ * Status divalidasi longgar sebagai string: Domain 3 mengetikkannya `str`,
+ * sehingga enum ketat di client akan menolak status baru yang sah.
+ */
+export const ComplianceReportStatusSchema = z.string();
+export type ComplianceReportStatus = z.infer<typeof ComplianceReportStatusSchema>;
+
+/** POST /api/admin/compliance-reports (201) — belum memuat downloadUrl. */
+export const ComplianceReportResponseSchema = z.object({
+  reportId: z.string(),
+  status: ComplianceReportStatusSchema,
+});
+export type ComplianceReportResponse = z.infer<typeof ComplianceReportResponseSchema>;
+
+/** GET /api/admin/compliance-reports/{id} — status lengkap dengan file. */
+export const ComplianceReportStatusResponseSchema = z.object({
+  reportId: z.string(),
+  status: ComplianceReportStatusSchema,
+  downloadUrl: z.string().nullable(),
+  generatedAt: z.string().datetime().nullable(),
+});
+export type ComplianceReportStatusResponse = z.infer<typeof ComplianceReportStatusResponseSchema>;

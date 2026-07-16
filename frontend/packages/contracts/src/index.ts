@@ -1,4 +1,5 @@
 export * from './schemas/common.js';
+export * from './schemas/accessibility.js';
 export * from './schemas/spatial.js';
 export * from './schemas/resident.js';
 export * from './schemas/drill.js';

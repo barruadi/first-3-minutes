@@ -1,0 +1,5 @@
+{
+  "action": "TURN_RIGHT",
+  "distanceMeters": 2.0,
+  "priority": "NORMAL"
+}

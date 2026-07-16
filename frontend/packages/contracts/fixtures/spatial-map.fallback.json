@@ -1,0 +1,23 @@
+{
+  "scanId": "scan-demo-001",
+  "origin": { "x": 0, "y": 0, "z": 0 },
+  "safeZones": [
+    {
+      "id": "fallback-safe-1",
+      "type": "SAFE_ZONE",
+      "label": "assumed_sturdy_furniture",
+      "position": { "x": 0.0, "y": 0.0, "z": -1.5 }
+    }
+  ],
+  "hazardZones": [],
+  "exitPoints": [
+    {
+      "id": "fallback-exit-1",
+      "type": "EXIT_POINT",
+      "label": "assumed_main_door",
+      "position": { "x": 0.0, "y": 0.0, "z": -4.0 }
+    }
+  ],
+  "source": "fallback",
+  "createdAt": "2026-07-16T00:00:00Z"
+}

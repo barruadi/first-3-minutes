@@ -262,3 +262,143 @@ Architect harus mengisi keputusan berikut setelah repository/device inspection:
 - Impact Domain 4: Three.js 0.166 — gunakan `@types/three` yang sesuai.
 - Migration/action required: Jangan upgrade major versions tanpa approval Architect.
 - Verification: `npm run typecheck` dan `pytest` pada versi terinstall.
+
+## 2026-07-16 — Stack confirmation: React Native, bukan all-web WebXR
+
+- Type: PRODUCT
+- Author/role: Product owner (dikonfirmasi via review pra-Phase 2)
+- Status: ACCEPTED
+- Related tasks: PRD-01, PRD-03, PRD-04, ASM-001
+- Context: Kolom Notes pada `First3Minutes - product-backlog.csv` (PRD-01) berisi "Using all web, not flutter/react native; instead using webxr". Catatan ini bertentangan dengan seluruh `prompts/` dan hasil bootstrap yang sudah memakai React Native. File CSV belum ter-commit dan dimodifikasi setelah commit scaffold, sehingga catatan tidak dapat diasumsikan usang tanpa konfirmasi.
+- Decision/change: Resident Mobile tetap React Native + Expo Development Build. Catatan CSV all-web/WebXR DITOLAK untuk Domain 1 dan Domain 2. Guest WebAR (Domain 4) tetap berbasis web sesuai PRD §9 — keputusan ini tidak mengubahnya.
+- Reason summary: Target demo adalah iPhone fisik. iOS Safari tidak mendukung WebXR `immersive-ar`, sehingga jalur all-web akan menghilangkan PRD-03 dan PRD-04. ARKit juga diperlukan untuk floor plane, posture estimation, dan hardware-validated compliance yang menjadi diferensiasi produk (PRD §3.3).
+- Impact Domain 1: Tidak ada perubahan. Lanjutkan scan pipeline di React Native.
+- Impact Domain 2: Tidak ada perubahan. ARKit via `@reactvision/react-viro` tetap baseline; capability spike masih WAJIB.
+- Impact Domain 3: Tidak ada perubahan.
+- Impact Domain 4: Tidak ada perubahan. Guest WebAR tetap marker-based web, bukan `immersive-ar`.
+- Migration/action required: Commit file CSV ke git agar seluruh anggota melihat backlog yang sama. Catatan CSV yang bertentangan dengan `prompts/docs/prd.md` mengikuti urutan sumber kebenaran pada `prompts/README.md`.
+- Verification: Konfirmasi eksplisit product owner; target device iPhone fisik.
+
+## 2026-07-16 — Demo device: iPhone fisik
+
+- Type: ENVIRONMENT
+- Author/role: Product owner
+- Status: ACCEPTED
+- Related tasks: ASM-001, D1-001, D2-001
+- Context: ASM-001 ("device target mendukung provider AR terpilih") menunggu konfirmasi.
+- Decision/change: Demo final berjalan pada iPhone fisik. ASM-001 ditutup.
+- Reason summary: Menentukan baseline AR dan menghilangkan opsi all-web untuk drill.
+- Impact Domain 1: Build lokal via `expo run:ios` menggunakan Xcode pada macOS. EAS Build dan Apple Developer Program berbayar TIDAK diperlukan untuk hackathon; personal team provisioning (7 hari) memadai. Catatan `prompts/config/environment.md` §3 yang mengasumsikan EAS "dari Windows" tidak berlaku untuk setup ini.
+- Impact Domain 2: ARKit tersedia. Ambient light sensor iOS TIDAK tersedia — shelter darkness wajib memakai camera luminance sesuai `03-coder/domain-2` iOS sensor rules.
+- Impact Domain 3: Tidak ada.
+- Impact Domain 4: Guest WebAR diuji pada Safari iOS.
+- Migration/action required: Pastikan Xcode terpasang dan iPhone terdaftar pada personal team.
+- Verification: Device build terpasang; capability spike Domain 2.
+
+---
+
+## Phase 2 — Contract Freeze v1
+
+## 2026-07-16 — Contract v1 FROZEN
+
+- Type: CONTRACT
+- Author/role: Architect (02-architect)
+- Status: ACCEPTED
+- Related tasks: ARCH-001, ACC-001
+- Context: Empat domain akan dikerjakan empat orang secara paralel. Sebelum freeze, seluruh contract berstatus DRAFT dan beberapa tipe yang disebut prompt coder tidak ada di source code mana pun.
+- Decision/change: `frontend/packages/contracts/**` dan mirror Pydantic `backend/app/schemas/**` dibekukan sebagai v1. Perubahan berikutnya memerlukan Contract Change Request pada `prompts/memory/change-requests/`.
+- Reason summary: Consumer tidak boleh menebak bentuk data; producer dan consumer harus memvalidasi fixture yang sama.
+- Impact Domain 1: `ResidentHomeResponse`, `DrillLaunchInput`, `DrillOutcome`, `AccessibilityMode` tersedia. Jangan membuat type lokal duplicate.
+- Impact Domain 2: `DrillOutcome`, `DrillFailureReason`, `GuidanceEvent` tersedia. SpatialMap dijamin punya minimal satu safeZone dan satu exitPoint.
+- Impact Domain 3: Mirror Pydantic wajib tetap identik. Enum tidak boleh dilonggarkan menjadi `str`.
+- Impact Domain 4: `AnalyticsSummary`, `GuestRoute`, `ComplianceReportRequest`, `FloorPlan`, `GuidanceEvent` tersedia dan siap dikonsumsi.
+- Migration/action required: Jalankan `npm run test:js` dan `pytest tests/` setelah install.
+- Verification: `contracts.test.ts` dan `backend/tests/test_contracts.py` memvalidasi fixture yang sama.
+
+### ADR-001 — Freeze AccessibilityMode dan GuidanceEvent (ACC-001)
+
+- Status: Accepted
+- Konteks: `architecture.md` §8.8 mendefinisikan `AccessibilityMode` dan `GuidanceEvent`, tetapi keduanya tidak ada pada file source mana pun. Tiga domain (1, 2, 4) membutuhkannya; tanpa freeze masing-masing akan membuat versi sendiri.
+- Keputusan: Dibuat `contracts/src/schemas/accessibility.ts`. Ditambahkan `GUIDANCE_AUDIO_POLICY` dengan nilai debounce dan ducking yang dibekukan agar Domain 1 (Expo TTS) dan Domain 4 (browser speech) berperilaku sama.
+- Alternatif yang dipertimbangkan: Membiarkan tiap domain mendefinisikan sendiri — ditolak karena menjamin divergence.
+- Dampak Domain 1: D1-ACC-01 memakai `AccessibilityMode` + adapter TTS.
+- Dampak Domain 2: D2-ACC-01 memancarkan `GuidanceEvent`; tidak memanggil TTS langsung.
+- Dampak Domain 3: Tidak ada; event dihitung client.
+- Dampak Domain 4: D4-ACC-01 memakai schema dan policy yang sama.
+- Risiko: Nilai debounce/ducking mungkin perlu kalibrasi di device; perubahan nilai bukan breaking change struktural.
+- Cara verifikasi: Unit test menolak action di luar enum (mis. `FOLLOW_GREEN_ARROW`).
+
+### ADR-002 — DrillLaunchInput/DrillOutcome sebagai batas Domain 1 ↔ Domain 2
+
+- Status: Accepted
+- Konteks: Prompt coder Domain 1 menyebut "nama final mengikuti contract package" dan melarang type lokal, tetapi type tersebut tidak ada.
+- Keputusan: `DrillOutcome` dibekukan sebagai discriminated union (`success` wajib membawa metrics; `failure` wajib membawa `DrillFailureReason` dari enum tertutup). `DrillLaunchInput` type-only karena memuat callback `announceGuidance`.
+- Alternatif yang dipertimbangkan: `status` + optional metrics tanpa union — ditolak karena mengizinkan `success` tanpa metrics.
+- Dampak Domain 1: Menerima outcome; satu-satunya pemilik submission metrics dan navigation.
+- Dampak Domain 2: Mengembalikan outcome; tidak memanggil endpoint rating.
+- Dampak Domain 3: Tidak ada.
+- Dampak Domain 4: Tidak ada.
+- Risiko: Rendah.
+- Cara verifikasi: Test menolak `{status:'success'}` tanpa metrics.
+
+### ADR-003 — ResidentHomeResponse menggantikan ResidentProfile sebagai response Home
+
+- Status: Accepted
+- Konteks: Backend memakai `ResidentHomeResponse`, TypeScript memakai `ResidentProfile`; keduanya tidak memuat last drill maupun status scan yang diwajibkan PRD §6.1 dan architecture §10.2.
+- Keputusan: `ResidentHomeResponseSchema = ResidentProfileSchema.extend({ lastDrill, spatialReadiness })`. `ResidentProfile` dipertahankan sebagai komposisi, bukan response endpoint. Ditambahkan pula contract Rewards dan History (cursor pagination, urutan `completedAt` DESC).
+- Alternatif yang dipertimbangkan: Membiarkan Domain 1 menggabungkan beberapa endpoint — ditolak, melanggar guardrail "Avoid N+1" dan memaksa kalkulasi client.
+- Dampak Domain 1: Home/Rewards/History dapat dirender penuh dari response server.
+- Dampak Domain 2: Tidak ada.
+- Dampak Domain 3: Wajib mengisi `lastDrill` dan `spatialReadiness` pada `GET /api/resident/home`.
+- Dampak Domain 4: Tidak ada.
+- Risiko: Rendah.
+- Cara verifikasi: Fixture `resident-home.valid.json` lulus di TypeScript dan Pydantic; test first-run resident (lastDrill null) lulus.
+
+### ADR-004 — buildingId dihapus dari ComplianceReportRequest
+
+- Status: Accepted
+- Konteks: Contract mewajibkan `buildingId`, sedangkan architecture §10.6/§11 mewajibkan server SELALU memakai `DEMO_BUILDING_ID` dan mengabaikan scope client. Contract memaksa Domain 4 mengirim field yang wajib ditolak Domain 3.
+- Keputusan: Field dihapus dari TypeScript dan Pydantic. Test membuktikan `buildingId` dari client di-strip, bukan dipakai.
+- Alternatif yang dipertimbangkan: Mempertahankan field lalu mengabaikannya di server — ditolak karena contract akan mendokumentasikan perilaku yang salah.
+- Dampak Domain 1: Tidak ada.
+- Dampak Domain 2: Tidak ada.
+- Dampak Domain 3: Endpoint tidak boleh membaca building scope dari body.
+- Dampak Domain 4: Jangan mengirim `buildingId`.
+- Risiko: Rendah.
+- Cara verifikasi: `test_compliance_request_ignores_client_building_scope`.
+
+### ADR-005 — Enum parity antara Pydantic dan Zod
+
+- Status: Accepted
+- Konteks: Inspeksi menemukan lima divergence: `SpatialObject.type`, `SafetyRating.tier`, `DrillCompletionResponse.tier`, `SpatialMap.source` bertipe `str` bebas di Pydantic sementara Zod memakai enum tertutup; `escape_route_trends` bertipe `list[dict]` tanpa validasi. Backend akan menerima `tier="Bronze"` tanpa terdeteksi contract test.
+- Keputusan: Seluruh enum dipindahkan ke `app/schemas/common.py` sebagai `Literal` dan `contracts/src/schemas/common.ts` sebagai `z.enum`. `SpatialMap.source` kehilangan default `"fallback"`; pemanggil wajib menyatakan sumber secara eksplisit. `escape_route_trends` menjadi `EscapeRouteTrendPoint` dengan `period` ISO week.
+- Alternatif yang dipertimbangkan: Membiarkan backend longgar — ditolak; menghilangkan gunanya contract test.
+- Dampak Domain 1: Response server dijamin tier valid.
+- Dampak Domain 2: `SpatialMap` dijamin memenuhi minimum safe/exit (validator Pydantic + refine Zod).
+- Dampak Domain 3: Wajib memakai enum; jangan melonggarkan menjadi `str`.
+- Dampak Domain 4: Trend period dijamin `YYYY-Www`.
+- Risiko: Placeholder route lama yang mengirim nilai di luar enum akan gagal — itu memang tujuannya.
+- Cara verifikasi: Test menolak `tier="Bronze"`, `source="chatgpt"`, `type="COFFEE_ZONE"`, `period="July"`.
+
+### ADR-006 — Error code dan HTTP mapping dibekukan
+
+- Status: Accepted
+- Konteks: `03-coder/domain-3` mendaftar 13 error code minimum, tetapi tidak ada satu pun yang dikodekan sebagai contract bersama. Placeholder route memakai code di luar daftar (`INVALID_FRAME_COUNT`, `INVALID_MIME`, `INVALID_TOKEN`, `NOT_IMPLEMENTED`, `INTERNAL_SERVER_ERROR`).
+- Keputusan: `ErrorCodeSchema` (TS) dan `ErrorCode` (Pydantic) memuat 13 code. `ERROR_HTTP_STATUS` membekukan mapping non-400. Envelope `ApiError` tetap memvalidasi `code` sebagai string longgar agar client tidak crash ketika server menambah code baru.
+- Alternatif yang dipertimbangkan: Memvalidasi `code` sebagai enum ketat pada client — ditolak; menambah code akan menjadi breaking change.
+- Dampak Domain 1: Error mapping terpusat memakai code stabil.
+- Dampak Domain 2: Tidak ada.
+- Dampak Domain 3: Placeholder code lama WAJIB diganti ke daftar frozen (lihat blocker BLK-003).
+- Dampak Domain 4: Branching error memakai code frozen.
+- Risiko: Rendah.
+- Cara verifikasi: `test_error_http_mapping_is_frozen`; fixture error lulus `ErrorCodeSchema`.
+
+### ADR-007 — Perbaikan FIXTURES_DIR pada backend contract test
+
+- Status: Accepted
+- Type: FIX
+- Konteks: `backend/tests/test_contracts.py` memakai `parents[3]`, yang resolve ke `/Users/<user>/First3Minutes/frontend/...` — satu level DI LUAR repository. Seluruh test pada file tersebut selalu gagal `FileNotFoundError`. Artinya bukti "contract test lulus" pada bootstrap tidak pernah nyata.
+- Keputusan: Diperbaiki menjadi `parents[2]`. Ditambahkan `test_fixtures_dir_resolves_inside_repository` sebagai guard agar regresi ini terdeteksi langsung.
+- Dampak Domain 3: Contract test kini benar-benar berjalan.
+- Risiko: Test yang sebelumnya "hijau karena tidak pernah jalan" dapat menampakkan kegagalan nyata.
+- Cara verifikasi: `pytest tests/test_contracts.py -v` setelah venv dibuat.

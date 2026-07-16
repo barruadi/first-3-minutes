@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "SPATIAL_AI_TIMEOUT",
+    "message": "Analisis ruang melewati batas waktu.",
+    "details": null
+  }
+}

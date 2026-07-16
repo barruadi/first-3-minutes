@@ -1,0 +1,16 @@
+{
+  "scanId": "scan-demo-002",
+  "origin": { "x": 0, "y": 0, "z": 0 },
+  "safeZones": [],
+  "hazardZones": [],
+  "exitPoints": [
+    {
+      "id": "exit-1",
+      "type": "EXIT_POINT",
+      "label": "main_door",
+      "position": { "x": 2.1, "y": 0.0, "z": -5.0 }
+    }
+  ],
+  "source": "gemini",
+  "createdAt": "2026-07-16T00:00:00Z"
+}
