@@ -13,7 +13,39 @@ import {
   type ComplianceReportRequest,
 } from '@3minutes/contracts';
 
-const BASE_URL = import.meta.env['VITE_ADMIN_API_BASE_URL'] ?? 'http://localhost:8000';
+const BASE_URL = import.meta.env['VITE_ADMIN_API_BASE_URL'] ?? '';
+
+// ---------------------------------------------------------------------------
+// Guest drill session types — not yet in @3minutes/contracts
+// ---------------------------------------------------------------------------
+
+export interface GuestSession {
+  id: string;
+  anchor_id: string;
+  anchor_name: string;
+  duration_seconds: number;
+  completed: boolean;
+  created_at: string;
+}
+
+interface GuestSessionsResponse {
+  sessions: GuestSession[];
+}
+
+/** Minimal inline validator for the guest-sessions response. */
+const GuestSessionsSchema: Validator<GuestSessionsResponse> = {
+  safeParse(data: unknown) {
+    if (
+      data !== null &&
+      typeof data === 'object' &&
+      'sessions' in data &&
+      Array.isArray((data as { sessions: unknown }).sessions)
+    ) {
+      return { success: true, data: data as GuestSessionsResponse };
+    }
+    return { success: false };
+  },
+};
 
 /**
  * Bentuk minimal schema yang dibutuhkan client. Dideklarasikan secara
@@ -152,4 +184,13 @@ export const adminApi = {
     requestBlob(`/api/admin/compliance-reports/${encodeURIComponent(reportId)}/download`, {
       signal,
     }),
+
+  getGuestSessions: async (signal?: AbortSignal): Promise<GuestSession[]> => {
+    const res = await request<GuestSessionsResponse>(
+      '/api/admin/guest-sessions',
+      GuestSessionsSchema,
+      { signal }
+    );
+    return res.sessions;
+  },
 };
