@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => ({
   },
   server: {
     port: 5174,
+    proxy: {
+      '/api': 'http://localhost:8000',
+    },
   },
   build: {
     outDir: 'dist',
