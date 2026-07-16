@@ -23,6 +23,8 @@ export default function LocationsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [upload, setUpload] = useState<UploadState>({ status: 'idle' });
+  const [preview, setPreview] = useState<{ name: string; url: string | null } | null>(null);
+  const [dragging, setDragging] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,6 +64,10 @@ export default function LocationsPage() {
     return () => abortRef.current?.abort();
   }, [load]);
 
+  useEffect(() => () => {
+    if (preview?.url) URL.revokeObjectURL(preview.url);
+  }, [preview]);
+
   const onPickFile = useCallback(
     async (file: File) => {
       const validationError = validateFloorPlanFile(file);
@@ -69,6 +75,13 @@ export default function LocationsPage() {
         setUpload({ status: 'error', message: validationError });
         return;
       }
+      setPreview((current) => {
+        if (current?.url) URL.revokeObjectURL(current.url);
+        return {
+          name: file.name,
+          url: file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+        };
+      });
       setUpload({ status: 'uploading', pct: 0 });
       try {
         const plan = await uploadFloorPlan(file, {
@@ -119,13 +132,34 @@ export default function LocationsPage() {
           }}
           style={{ display: 'none' }}
         />
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={upload.status === 'uploading'}
-          style={button(upload.status === 'uploading')}
+        <div
+          className={`upload-dropzone${dragging ? ' dragging' : ''}`}
+          onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(event) => {
+            event.preventDefault();
+            setDragging(false);
+            const file = event.dataTransfer.files[0];
+            if (file) void onPickFile(file);
+          }}
         >
-          {upload.status === 'uploading' ? `Mengunggah ${upload.pct}%` : 'Pilih file denah'}
-        </button>
+          <strong>Tarik denah ke sini</strong>
+          <span>atau pilih PNG, JPEG, WebP, maupun PDF hingga 10 MB</span>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={upload.status === 'uploading'}
+            style={button(upload.status === 'uploading')}
+          >
+            {upload.status === 'uploading' ? `Mengunggah ${upload.pct}%` : 'Pilih file denah'}
+          </button>
+        </div>
+
+        {preview && (
+          <div className="floor-preview">
+            {preview.url ? <img src={preview.url} alt={`Pratinjau ${preview.name}`} /> : <div className="pdf-preview">PDF</div>}
+            <div><strong>{preview.name}</strong><span>Pratinjau file pilihan</span></div>
+          </div>
+        )}
 
         {upload.status === 'uploading' && (
           <div

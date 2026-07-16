@@ -65,7 +65,7 @@ async function toApiError(res: Response): Promise<AdminApiError> {
 type RequestOptions = {
   method?: string;
   body?: unknown;
-  signal?: AbortSignal;
+  signal?: AbortSignal | undefined;
 };
 
 /**
@@ -80,12 +80,13 @@ async function request<T>(
 ): Promise<T> {
   const { method = 'GET', body, signal } = options;
 
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-  });
+  const init: RequestInit = { method };
+  if (body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(body);
+  }
+  if (signal) init.signal = signal;
+  const res = await fetch(`${BASE_URL}${path}`, init);
 
   if (!res.ok) throw await toApiError(res);
 
@@ -104,12 +105,13 @@ async function request<T>(
 /** Untuk QR dan PDF yang dikembalikan sebagai file, bukan JSON. */
 async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const { method = 'GET', body, signal } = options;
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-    signal,
-  });
+  const init: RequestInit = { method };
+  if (body !== undefined) {
+    init.headers = { 'Content-Type': 'application/json' };
+    init.body = JSON.stringify(body);
+  }
+  if (signal) init.signal = signal;
+  const res = await fetch(`${BASE_URL}${path}`, init);
   if (!res.ok) throw await toApiError(res);
   return res.blob();
 }

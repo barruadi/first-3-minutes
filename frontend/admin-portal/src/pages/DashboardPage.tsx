@@ -4,7 +4,7 @@ import type { AnalyticsSummary } from '@3minutes/contracts';
 import LoadingState from '../components/LoadingState.js';
 import ErrorState from '../components/ErrorState.js';
 import EmptyState from '../components/EmptyState.js';
-import { TrendChart, HeatmapMatrix, HeatmapTable } from '../components/charts.js';
+import { TrendChart, HeatmapMatrix, HeatmapTable, ParticipationChart } from '../components/charts.js';
 import { adminApi, AdminApiError } from '../services/api.js';
 import { markDashboardReady, resetDashboardMarks, MARK_NAV_START } from '../services/performance.js';
 
@@ -64,11 +64,15 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <header style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>Dashboard</h1>
-        <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginTop: 4 }}>
-          Gedung demo · {data.buildingId}
-        </p>
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Pusat kesiapsiagaan</p>
+          <h1>Dashboard</h1>
+          <p className="page-subtitle">Gedung demo aktif · {data.buildingId}</p>
+        </div>
+        <button className="secondary-button" onClick={() => navigate('/compliance')}>
+          Export kepatuhan
+        </button>
       </header>
 
       {/* Angka headline: stat tile, bukan chart. */}
@@ -84,6 +88,16 @@ export default function DashboardPage() {
         <StatCard label="Rata-rata Waktu Berlindung" value={`${(data.averageShelterTimeMs / 1000).toFixed(1)}s`} />
         <StatCard label="Lokasi Terpantau" value={String(data.heatmapCells.length)} />
       </div>
+
+      <Section title="Partisipasi Latihan">
+        <div className="participation-layout">
+          <ParticipationChart percentage={data.participationRatePercentage} />
+          <div>
+            <strong className="metric-callout">{data.participationRatePercentage.toFixed(1)} dari 100%</strong>
+            <p className="page-subtitle">Angka agregat berasal langsung dari layanan analitik gedung demo.</p>
+          </div>
+        </div>
+      </Section>
 
       <Section title="Tren Rute Evakuasi">
         {data.escapeRouteTrends.length > 0 ? (

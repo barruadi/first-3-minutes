@@ -27,6 +27,27 @@ function seconds(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`;
 }
 
+export function ParticipationChart({ percentage }: { percentage: number }) {
+  const value = Math.min(100, Math.max(0, percentage));
+  const circumference = 2 * Math.PI * 44;
+  const dash = (value / 100) * circumference;
+  return (
+    <figure className="participation-chart" aria-label={`Partisipasi latihan ${value.toFixed(1)} persen`}>
+      <svg viewBox="0 0 112 112" role="img" aria-hidden="true">
+        <circle cx="56" cy="56" r="44" className="ring-track" />
+        <circle
+          cx="56" cy="56" r="44" className="ring-value"
+          strokeDasharray={`${dash} ${circumference - dash}`}
+        />
+      </svg>
+      <figcaption>
+        <strong>{value.toFixed(1)}%</strong>
+        <span>partisipasi</span>
+      </figcaption>
+    </figure>
+  );
+}
+
 // --- Trend ---
 
 type TrendChartProps = {
