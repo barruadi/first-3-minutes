@@ -1,18 +1,17 @@
-from datetime import datetime
-from fastapi import APIRouter
-from app.schemas.drill import DrillMetricsRequest, DrillCompletionResponse
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from app.core.database import get_db
+from app.schemas.drill import DrillCompletionResponse, DrillMetricsRequest
+from app.services.rating import complete_drill
 
 router = APIRouter(prefix="/drills", tags=["drill"])
 
 
 @router.post("/{drill_id}/complete", response_model=DrillCompletionResponse)
-def complete_drill(drill_id: str, body: DrillMetricsRequest):
-    # Placeholder: Domain 3 implements full rating engine, reward eligibility, decay
-    return DrillCompletionResponse(
-        drill_id=drill_id,
-        accepted=True,
-        reward_eligible=False,
-        safety_rating=0.0,
-        tier="Silver",
-        recorded_at=datetime.utcnow(),
-    )
+def complete_drill_endpoint(
+    drill_id: str,
+    body: DrillMetricsRequest,
+    db: Session = Depends(get_db),
+):
+    return complete_drill(db, drill_id, body)
