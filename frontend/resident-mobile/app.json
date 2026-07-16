@@ -3,6 +3,7 @@
     "name": "3MINUTES",
     "slug": "three-minutes",
     "version": "0.1.0",
+    "scheme": "threeminutes",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -26,9 +27,6 @@
       },
       "package": "com.threeminutes.resident",
       "permissions": ["CAMERA", "HIGH_SAMPLING_RATE_SENSORS"]
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-dev-client",
