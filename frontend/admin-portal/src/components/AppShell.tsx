@@ -5,6 +5,7 @@ const NAV_ITEMS = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/locations', label: 'Lokasi' },
   { to: '/compliance', label: 'Kepatuhan' },
+  { to: '/guest-drills', label: 'Sesi Tamu' },
 ];
 
 export default function AppShell() {
