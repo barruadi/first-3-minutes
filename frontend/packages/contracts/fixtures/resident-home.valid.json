@@ -1,0 +1,30 @@
+{
+  "installationId": "resident-demo-001",
+  "safetyRating": {
+    "score": 92,
+    "tier": "Platinum",
+    "lastDrillAt": "2026-07-16T00:00:01Z"
+  },
+  "rewardEligibility": {
+    "eligible": false,
+    "nextEligibleAt": "2026-07-23T00:00:01Z",
+    "lastIssuedAt": "2026-07-16T00:00:01Z"
+  },
+  "locationStatus": "Rumah — Lantai 4, Kamar 402",
+  "lastDrill": {
+    "drillId": "drill-demo-001",
+    "scanId": "scan-demo-001",
+    "reactionTimeMs": 8420,
+    "evacuationTimeMs": 61240,
+    "postureScorePercentage": 91,
+    "safetyRating": 92,
+    "tier": "Platinum",
+    "completedAt": "2026-07-16T00:00:01Z"
+  },
+  "spatialReadiness": {
+    "hasSpatialMap": true,
+    "scanId": "scan-demo-001",
+    "source": "gemini",
+    "createdAt": "2026-07-16T00:00:00Z"
+  }
+}

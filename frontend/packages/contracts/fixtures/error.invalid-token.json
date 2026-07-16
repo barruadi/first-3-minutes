@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "QR_TOKEN_INVALID",
+    "message": "Kode QR tidak dikenali atau sudah tidak berlaku.",
+    "details": null
+  }
+}
