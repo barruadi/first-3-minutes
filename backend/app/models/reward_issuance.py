@@ -9,7 +9,7 @@ class RewardIssuance(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     installation_id: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    drill_id: Mapped[str] = mapped_column(ForeignKey("drills.id"), nullable=False)
+    drill_id: Mapped[str] = mapped_column(ForeignKey("drills.id"), unique=True, nullable=False)
     cycle_started_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     issued_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
