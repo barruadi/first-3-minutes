@@ -1,5 +1,21 @@
 # Changelog dan Decision Log — 3MINUTES
 
+## 2026-07-16 — Domain 3 backend implementation
+
+- Type: ARCHITECTURE | SECURITY | INTEGRATION
+- Author/role: Domain 3 Coder
+- Status: ACCEPTED
+- Related tasks: Spatial AI, rating, resident reads, analytics, floor/location, QR/guest, PDF
+- Context: Bootstrap routes and fixtures were replaced with database-backed implementation.
+- Decision/change: Rating uses configurable weights 35/35/30, Platinum >=85, Gold >=70; Gemini uses official `google-genai` with default `gemini-3.5-flash`; admin scope remains server-side `DEMO_BUILDING_ID`; QR persists only a SHA-256 token hash.
+- Reason summary: Complete demo critical paths while preserving camelCase contracts and anonymous identity.
+- Impact Domain 1: Multipart fields are `scanId`, `installationId`, optional `locationId`, and exactly 15 JPEG files under `images`.
+- Impact Domain 2: Completion sends existing `DrillMetrics`; rating/reward are server results.
+- Impact Domain 3: Recreate the development schema once because bootstrap tables gained fields and indexes.
+- Impact Domain 4: Admin endpoints now return real data/files; generated Guest URLs resolve real opaque tokens.
+- Migration/action required: For an old demo database run `python -m app.fixtures.reset`; configure `QR_TOKEN_SECRET`, `GUEST_BASE_URL`, and optionally `GEMINI_API_KEY`.
+- Verification: SQLite API/unit suite 24 passed; live PostgreSQL/Gemini/device checks remain.
+
 ## Tujuan
 
 Dokumen ini mencatat perubahan yang perlu diketahui lintas agent:

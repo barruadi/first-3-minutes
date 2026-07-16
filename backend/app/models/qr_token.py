@@ -11,6 +11,7 @@ class QrToken(Base):
     token_hash: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     location_id: Mapped[str] = mapped_column(ForeignKey("locations.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     location: Mapped["Location"] = relationship(back_populates="qr_tokens")
