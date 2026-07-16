@@ -1,38 +1,42 @@
+export const LIDAR_SCAN_DURATION_MS = 20_000;
+
+// Legacy constants kept for scanFiles.ts (video pipeline no longer used in ScanScreen)
 export const SCAN_DURATION_MS = 45_000;
 export const FRAME_COUNT = 15;
 export const MAX_PAYLOAD_BYTES = 4 * 1024 * 1024;
 
 export type ScanState =
-  | 'idle' | 'requesting_permission' | 'ready' | 'recording' | 'finalizing_recording'
-  | 'sampling' | 'compressing' | 'validating_payload' | 'uploading' | 'spatial_ready'
-  | 'error' | 'interrupted';
+  | 'idle'
+  | 'scanning'
+  | 'generating'
+  | 'uploading'
+  | 'spatial_ready'
+  | 'error';
 
 export type ScanEvent =
-  | 'REQUEST_PERMISSION' | 'PERMISSION_GRANTED' | 'PERMISSION_DENIED' | 'START'
-  | 'CAPTURE_ENDED' | 'VIDEO_READY' | 'FRAMES_READY' | 'COMPRESSED' | 'PAYLOAD_VALID'
-  | 'UPLOAD_SUCCESS' | 'FAIL' | 'INTERRUPT' | 'RETRY' | 'RESET';
+  | 'START'
+  | 'SCAN_COMPLETE'
+  | 'FLOOR_PLAN_READY'
+  | 'UPLOAD_SUCCESS'
+  | 'FAIL'
+  | 'RESET';
 
 const transitions: Record<ScanState, Partial<Record<ScanEvent, ScanState>>> = {
-  idle: { REQUEST_PERMISSION: 'requesting_permission', RESET: 'idle' },
-  requesting_permission: { PERMISSION_GRANTED: 'ready', PERMISSION_DENIED: 'error', FAIL: 'error' },
-  ready: { START: 'recording', RESET: 'idle' },
-  recording: { CAPTURE_ENDED: 'finalizing_recording', INTERRUPT: 'interrupted', FAIL: 'error' },
-  finalizing_recording: { VIDEO_READY: 'sampling', INTERRUPT: 'interrupted', FAIL: 'error' },
-  sampling: { FRAMES_READY: 'compressing', FAIL: 'error' },
-  compressing: { COMPRESSED: 'validating_payload', FAIL: 'error' },
-  validating_payload: { PAYLOAD_VALID: 'uploading', FAIL: 'error' },
-  uploading: { UPLOAD_SUCCESS: 'spatial_ready', INTERRUPT: 'interrupted', FAIL: 'error' },
+  idle:          { START: 'scanning' },
+  scanning:      { SCAN_COMPLETE: 'generating', FAIL: 'error' },
+  generating:    { FLOOR_PLAN_READY: 'uploading', FAIL: 'error' },
+  uploading:     { UPLOAD_SUCCESS: 'spatial_ready', FAIL: 'error' },
   spatial_ready: { RESET: 'idle' },
-  error: { RETRY: 'ready', RESET: 'idle' },
-  interrupted: { RETRY: 'ready', RESET: 'idle' },
+  error:         { RESET: 'idle' },
 };
 
 export function transitionScan(state: ScanState, event: ScanEvent): ScanState {
-  const next = transitions[state][event];
+  const next = transitions[state]?.[event];
   if (!next) throw new Error(`Transisi scan tidak valid: ${state} + ${event}`);
   return next;
 }
 
+// Legacy helpers kept for backward compatibility with scanFiles.ts
 export function generateTargetTimestamps(durationMs = SCAN_DURATION_MS, count = FRAME_COUNT): number[] {
   if (!Number.isFinite(durationMs) || durationMs <= 0 || !Number.isInteger(count) || count <= 0) {
     throw new Error('Durasi dan jumlah frame harus positif');

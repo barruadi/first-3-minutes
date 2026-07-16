@@ -33,6 +33,71 @@ async function request<T>(path: string, parser: (value: unknown) => T, options: 
   }
 }
 
+// ── Building scan / anchor types ─────────────────────────────────────────────
+
+export interface BuildingScanResult {
+  id: string;
+  floorPlanUrl: string;
+  meshUrl: string;
+  createdAt: string;
+}
+
+export interface AnchorResult {
+  id: string;
+  name: string;
+  posX: number;
+  posZ: number;
+  isExit: boolean;
+  scanId: string;
+}
+
+function parseAnchor(d: Record<string, unknown>): AnchorResult {
+  return {
+    id: d['id'] as string,
+    name: d['name'] as string,
+    posX: (d['pos_x'] ?? d['posX']) as number,
+    posZ: (d['pos_z'] ?? d['posZ']) as number,
+    isExit: (d['is_exit'] ?? d['isExit']) as boolean,
+    scanId: (d['scan_id'] ?? d['scanId']) as string,
+  };
+}
+
+// ── Building API ──────────────────────────────────────────────────────────────
+
+export const buildingApi = {
+  uploadScan: (floorPlanUri: string, meshUri: string, signal?: AbortSignal): Promise<BuildingScanResult> => {
+    const form = new FormData();
+    form.append('floor_plan', { uri: floorPlanUri, name: 'floor_plan.png', type: 'image/png' } as never);
+    form.append('mesh', { uri: meshUri, name: 'mesh.obj', type: 'model/obj' } as never);
+    return request('/buildings/scan', (data) => {
+      const d = data as Record<string, unknown>;
+      return {
+        id: d['id'] as string,
+        floorPlanUrl: (d['floor_plan_url'] ?? d['floorPlanUrl']) as string,
+        meshUrl: (d['mesh_url'] ?? d['meshUrl']) as string,
+        createdAt: (d['created_at'] ?? d['createdAt']) as string,
+      };
+    }, { method: 'POST', body: form, signal });
+  },
+
+  createAnchor: (scanId: string, name: string, posX: number, posZ: number, isExit: boolean, signal?: AbortSignal): Promise<AnchorResult> =>
+    request(`/buildings/${encodeURIComponent(scanId)}/anchors`,
+      (data) => parseAnchor(data as Record<string, unknown>),
+      { method: 'POST', body: JSON.stringify({ name, pos_x: posX, pos_z: posZ, is_exit: isExit }), signal }),
+
+  getAnchors: (scanId: string, signal?: AbortSignal): Promise<AnchorResult[]> =>
+    request(`/buildings/${encodeURIComponent(scanId)}/anchors`,
+      (data) => (data as Array<Record<string, unknown>>).map(parseAnchor),
+      { signal }),
+
+  deleteAnchor: (scanId: string, anchorId: string, signal?: AbortSignal): Promise<void> =>
+    request(`/buildings/${encodeURIComponent(scanId)}/anchors/${encodeURIComponent(anchorId)}`,
+      () => undefined,
+      { method: 'DELETE', signal }),
+};
+
+// ── Resident API (unchanged) ──────────────────────────────────────────────────
+
 export const residentApi = {
   getHome: (installationId: string, signal?: AbortSignal) =>
     request(`/resident/home?installationId=${encodeURIComponent(installationId)}`, (data) => ResidentHomeResponseSchema.parse(data), { signal }),
