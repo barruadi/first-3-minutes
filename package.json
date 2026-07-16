@@ -9,25 +9,26 @@
     "frontend/packages/*"
   ],
   "scripts": {
-    "start:mobile": "npm run --workspace=frontend/resident-mobile start",
-    "build:ios:dev": "npm run --workspace=frontend/resident-mobile build:ios:dev",
-    "dev:admin": "npm run --workspace=frontend/admin-portal dev",
-    "dev:guest": "npm run --workspace=frontend/guest-webar dev",
+    "start:mobile": "yarn workspace frontend/resident-mobile start",
+    "build:ios:dev": "yarn workspace frontend/resident-mobile build:ios:dev",
+    "dev:admin": "yarn workspace frontend/admin-portal dev",
+    "dev:guest": "yarn workspace frontend/guest-webar dev",
     "dev:api": "cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
     "docker:up": "docker compose up -d",
     "docker:down": "docker compose down",
-    "lint": "npm run --workspaces --if-present lint",
-    "typecheck": "npm run --workspaces --if-present typecheck",
-    "test": "npm run test:js && echo 'Run npm run test:api separately in backend venv'",
-    "test:js": "npm run --workspaces --if-present test",
+    "lint": "yarn workspaces run lint",
+    "typecheck": "yarn workspaces run typecheck",
+    "test": "yarn test:js && echo 'Run yarn test:api separately in backend venv'",
+    "test:js": "yarn workspaces run test",
     "test:api": "cd backend && python -m pytest tests/ -v",
-    "bootstrap:check": "node scripts/bootstrap-check.js"
+    "bootstrap:check": "node scripts/bootstrap-check.js",
+    "postinstall": "node scripts/postinstall.js"
   },
   "devDependencies": {
     "typescript": "^5.4.5"
   },
   "engines": {
     "node": ">=20.0.0",
-    "npm": ">=10.0.0"
+    "yarn": ">=1.22.0"
   }
 }
