@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     rating_decay_grace_days: int = 30
     rating_decay_weekly_rate: float = 0.05
 
+    api_base_url: str = "http://localhost:8000"
+
     enable_spatial_fallback: bool = True
     log_level: str = "INFO"
     cors_origins: str = "http://localhost:5173,http://localhost:5174,https://localhost:5173,https://localhost:5174"

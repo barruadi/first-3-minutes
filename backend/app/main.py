@@ -1,14 +1,17 @@
 import logging
+from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.openapi.utils import get_openapi
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 from app.core.errors import ApiException, error_payload
-from app.api.v1 import scan, resident, drill, admin, guest, location
+from app.api.v1 import scan, resident, drill, admin, guest, location, building
+from app.services.storage import storage_path
 
 logger = logging.getLogger("3minutes.api")
 
@@ -93,6 +96,15 @@ app.include_router(drill.router, prefix=api_prefix)
 app.include_router(admin.router, prefix=api_prefix)
 app.include_router(guest.router, prefix=api_prefix)
 app.include_router(location.router, prefix=api_prefix)
+app.include_router(building.router, prefix=api_prefix)
+
+# Serve uploaded floor plans and meshes as static files.
+# Files are stored in storage/floor_plans/ and storage/meshes/.
+# They are accessible via /uploads/floor_plans/<id>.png and /uploads/meshes/<id>.obj.
+_floor_plans_dir = storage_path("floor_plans", "placeholder").parent
+_meshes_dir = storage_path("meshes", "placeholder").parent
+app.mount("/uploads/floor_plans", StaticFiles(directory=str(_floor_plans_dir)), name="floor_plans")
+app.mount("/uploads/meshes", StaticFiles(directory=str(_meshes_dir)), name="meshes")
 
 
 @app.get("/")

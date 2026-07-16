@@ -24,3 +24,20 @@ async def create_spatial_map(
         location_id=location_id,
         images=images,
     )
+
+
+@router.post("/floor-plan", response_model=SpatialMapResponse)
+async def create_floor_plan_spatial_map(
+    scan_id: str = Form(..., alias="scanId"),
+    installation_id: str = Form(..., alias="installationId"),
+    floor_plan: UploadFile = File(..., alias="floorPlan"),
+    scale_meters_per_pixel: float = Form(default=0.05, alias="scaleMetersPerPixel"),
+    db: Session = Depends(get_db),
+):
+    return await spatial_ai.process_floor_plan_scan(
+        db=db,
+        scan_id=scan_id,
+        installation_id=installation_id,
+        floor_plan=floor_plan,
+        scale_meters_per_pixel=scale_meters_per_pixel,
+    )
