@@ -85,6 +85,19 @@ export default function RescuePage() {
     if (state.status !== 'awaiting_gesture') return;
     const { route } = state;
     setState({ status: 'requesting_camera', route });
+
+    // iOS 13+: sensor permissions MUST be requested from a user-gesture handler.
+    // Calling requestPermission() here (button click) grants it; subsequent calls
+    // inside useEffect/hooks will return 'granted' immediately without a dialog.
+    const anyDOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<PermissionState> };
+    if (typeof anyDOE.requestPermission === 'function') {
+      try { await anyDOE.requestPermission(); } catch { /* ignore — degrade silently */ }
+    }
+    const anyDME = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<PermissionState> };
+    if (typeof anyDME.requestPermission === 'function') {
+      try { await anyDME.requestPermission(); } catch { /* ignore — degrade silently */ }
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'environment' },
