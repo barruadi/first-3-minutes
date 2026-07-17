@@ -43,6 +43,8 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
   const videoRef    = useRef<HTMLVideoElement>(null);
   const speakerRef  = useRef<GuidanceSpeaker | null>(null);
   const headingRef  = useRef(0);
+  // Default 90° = phone upright = horizontal camera (no pitch offset).
+  const pitchRef    = useRef(90);
   const [guidance, setGuidance]                     = useState<GuidanceEvent | null>(null);
   const [orientationBlocked, setOrientationBlocked] = useState(false);
 
@@ -70,6 +72,9 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
       const webkitHeading = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
       if (typeof webkitHeading === 'number') headingRef.current = webkitHeading;
       else if (typeof e.alpha === 'number') headingRef.current = 360 - e.alpha;
+      // beta: 0 = flat/screen-up, 90 = upright portrait (normal camera hold).
+      // Clamped to [0, 180] to avoid camera flipping.
+      if (typeof e.beta === 'number') pitchRef.current = Math.max(0, Math.min(180, e.beta));
     }
 
     void (async () => {
@@ -161,7 +166,7 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
       if (len < 0.01) continue;
       const dir = seg.clone().normalize();
 
-      const steps = Math.min(Math.max(Math.floor(len), 1), 8);
+      const steps = Math.min(Math.max(Math.round(len / 0.5), 1), 20);
       for (let s = 0; s < steps; s++) {
         const t    = (s + 0.5) / steps;
         const mesh = new Mesh(chevronGeo, material);
@@ -193,10 +198,16 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
       animId = requestAnimationFrame(animate);
       sampler.tick(nowMs);
 
-      // Move camera to tracked position; compass heading drives rotation.
+      // Move camera to tracked position; device orientation drives rotation.
+      // Pitch: beta=90 (upright phone) → 0° offset. Tilting down → negative X → looks at floor.
       camera.position.x = positionRef.current.x;
       camera.position.z = positionRef.current.z;
-      euler.set(0, MathUtils.degToRad(-headingRef.current), 0);
+      euler.set(
+        MathUtils.degToRad(pitchRef.current - 90),
+        MathUtils.degToRad(-headingRef.current),
+        0,
+        'YXZ',
+      );
       quat.setFromEuler(euler);
       camera.quaternion.copy(quat);
 
