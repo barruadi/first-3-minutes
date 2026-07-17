@@ -46,15 +46,16 @@ function deriveMetrics(sessions: GuestSession[]): Metrics {
     const h = d.getHours();
     byHour[h] = (byHour[h] ?? 0) + 1;
     const key = s.created_at.slice(0, 10);
-    if (key in dayMap) (dayMap[key] as number)++;
+    if (key in dayMap) dayMap[key] = (dayMap[key] ?? 0) + 1;
     if (s.completed) {
       completedCount++;
       const t = s.duration_seconds;
-      if (t < 30) (buckets['< 30s'] as number)++;
-      else if (t < 60) (buckets['30–60s'] as number)++;
-      else if (t < 120) (buckets['1–2min'] as number)++;
-      else if (t < 300) (buckets['2–5min'] as number)++;
-      else (buckets['> 5min'] as number)++;
+      const bucket =
+        t < 30  ? '< 30s'  :
+        t < 60  ? '30–60s' :
+        t < 120 ? '1–2min' :
+        t < 300 ? '2–5min' : '> 5min';
+      buckets[bucket] = (buckets[bucket] ?? 0) + 1;
     }
   }
 
