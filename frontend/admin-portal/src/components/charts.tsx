@@ -1,16 +1,7 @@
 import React, { useId, useMemo, useState } from 'react';
 import type { EscapeRouteTrendPoint, SafetyMatrixCell } from '@3minutes/contracts';
 
-/**
- * Ramp sequential satu hue (Earth Brown), terang -> gelap.
- *
- * design.md §1: warna fungsional (merah danger) hanya boleh dalam konteks
- * simulasi drill; halaman umum memakai brand palette. Karena itu magnitude
- * failure rate memakai ramp brand, bukan merah.
- */
 const FAILURE_RAMP = ['#F3E4C9', '#E3C9A5', '#CBA47B', '#A97B52', '#8B5E3C'] as const;
-
-/** Ink pada tiap step agar teks tetap terbaca saat step menggelap. */
 const FAILURE_RAMP_INK = ['#0A2947', '#0A2947', '#0A2947', '#FFFFFF', '#FFFFFF'] as const;
 
 const AXIS_INK = '#475665';
@@ -48,18 +39,11 @@ export function ParticipationChart({ percentage }: { percentage: number }) {
   );
 }
 
-// --- Trend ---
-
 type TrendChartProps = {
   points: EscapeRouteTrendPoint[];
   height?: number;
 };
 
-/**
- * Satu seri berubah terhadap waktu -> line chart. Seri tunggal tidak memakai
- * legend box; judul section yang menamainya. Label langsung hanya pada titik
- * pertama dan terakhir, bukan setiap titik.
- */
 export function TrendChart({ points, height = 180 }: TrendChartProps) {
   const [hover, setHover] = useState<number | null>(null);
   const clipId = useId();
@@ -112,7 +96,6 @@ export function TrendChart({ points, height = 180 }: TrendChartProps) {
           <rect x="0" y="0" width={width} height={height} />
         </clipPath>
 
-        {/* Grid resesif: hanya dua garis referensi. */}
         {[0, 1].map((i) => (
           <line
             key={i}
@@ -139,8 +122,7 @@ export function TrendChart({ points, height = 180 }: TrendChartProps) {
 
         {coords.map((c, i) => (
           <g key={c.point.period}>
-            {/* Hit target lebih besar dari mark. */}
-            <rect
+              <rect
               x={c.x - 4}
               y={0}
               width={8}
@@ -176,7 +158,6 @@ export function TrendChart({ points, height = 180 }: TrendChartProps) {
         )}
       </svg>
 
-      {/* Label langsung selektif: periode pertama dan terakhir saja. */}
       <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: AXIS_INK, marginTop: 4 }}>
         <span>{points[0]?.period}</span>
         <span>{points[points.length - 1]?.period}</span>
@@ -194,18 +175,11 @@ export function TrendChart({ points, height = 180 }: TrendChartProps) {
   );
 }
 
-// --- Heatmap ---
-
 type HeatmapProps = {
   cells: SafetyMatrixCell[];
   onSelect?: (locationRef: string) => void;
 };
 
-/**
- * Magnitude per lokasi -> sequential, satu hue terang->gelap.
- * Identitas tidak pernah color-alone: setiap cell menampilkan angka dan label,
- * dan tersedia table view di bawahnya.
- */
 export function HeatmapMatrix({ cells, onSelect }: HeatmapProps) {
   const [hover, setHover] = useState<string | null>(null);
 
@@ -221,7 +195,7 @@ export function HeatmapMatrix({ cells, onSelect }: HeatmapProps) {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-          gap: 2, // spacer 2px antar fill
+          gap: 2,
         }}
       >
         {cells.map((cell) => {
@@ -257,7 +231,6 @@ export function HeatmapMatrix({ cells, onSelect }: HeatmapProps) {
         })}
       </div>
 
-      {/* Scale legend untuk ramp sequential. */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 12 }}>
         <span style={{ fontSize: 11, color: AXIS_INK }}>0% gagal</span>
         <div style={{ display: 'flex', gap: 2, flex: 1, maxWidth: 160 }}>
@@ -277,7 +250,6 @@ export function HeatmapMatrix({ cells, onSelect }: HeatmapProps) {
   );
 }
 
-/** Table view — identitas dan nilai tidak boleh hanya lewat warna. */
 export function HeatmapTable({ cells }: { cells: SafetyMatrixCell[] }) {
   if (cells.length === 0) return null;
   return (

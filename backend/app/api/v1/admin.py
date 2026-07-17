@@ -26,7 +26,6 @@ def get_analytics(
     building_id: str | None = Query(default=None, alias="buildingId"),
     db: Session = Depends(get_db),
 ):
-    # buildingId is intentionally ignored; scope always comes from DEMO_BUILDING_ID.
     return admin_service.get_analytics(db)
 
 

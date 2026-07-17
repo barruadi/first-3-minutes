@@ -19,12 +19,10 @@ from app.schemas.admin import ComplianceReportRequest, ComplianceReportResponse,
 from app.services.admin import get_analytics
 from app.services.storage import storage_path
 
-# ── Page geometry ──────────────────────────────────────────────────────────
 PAGE_W, PAGE_H = A4
 MARGIN = 20 * mm
 CONTENT_W = PAGE_W - 2 * MARGIN
 
-# ── Formal colour palette ──────────────────────────────────────────────────
 NAVY       = colors.HexColor("#0A2947")
 NAVY_LIGHT = colors.HexColor("#1E3A5F")
 GRAY_DARK  = colors.HexColor("#1A1A1A")
@@ -87,16 +85,13 @@ def _draw_page_frame(canvas, doc) -> None:
 
 def _formal_table_style(n_rows: int) -> TableStyle:
     cmds = [
-        # Header row
         ("BACKGROUND",    (0, 0), (-1,  0), NAVY),
         ("TEXTCOLOR",     (0, 0), (-1,  0), colors.white),
         ("FONTNAME",      (0, 0), (-1,  0), "Helvetica-Bold"),
         ("FONTSIZE",      (0, 0), (-1,  0), 8.5),
-        # Body
         ("FONTNAME",      (0, 1), (-1, -1), "Helvetica"),
         ("FONTSIZE",      (0, 1), (-1, -1), 9),
         ("TEXTCOLOR",     (0, 1), (-1, -1), GRAY_DARK),
-        # Alternating rows — only for rows that actually exist in the table
         *[("BACKGROUND",  (0, r), (-1, r), ROW_ALT) for r in range(2, n_rows, 2)],
         # Grid + header underline
         ("GRID",          (0, 0), (-1, -1), 0.3, BORDER),
@@ -186,7 +181,6 @@ def _render_pdf(
         creator="3MINUTES v1",
     )
 
-    # ── Shared paragraph styles ──────────────────────────────────────────
     body = ParagraphStyle(
         "Body", fontName="Helvetica", fontSize=9.5,
         textColor=GRAY_DARK, leading=14, spaceAfter=3,
@@ -218,7 +212,6 @@ def _render_pdf(
 
     story = []
 
-    # ── Cover strip ──────────────────────────────────────────────────────
     cover = Table(
         [[
             Paragraph(
@@ -245,7 +238,6 @@ def _render_pdf(
     story.append(cover)
     story.append(Spacer(1, 2 * mm))
 
-    # ── Metadata band ────────────────────────────────────────────────────
     meta = Table(
         [
             [
@@ -283,11 +275,9 @@ def _render_pdf(
     story.append(meta)
     story.append(Spacer(1, 5 * mm))
 
-    # ── Section 1 · Executive Summary ────────────────────────────────────
     story.extend(_section_heading("1", "Executive Summary"))
     story.append(Spacer(1, 2 * mm))
 
-    # Compliance status badge
     status_label, status_color = _compliance_status(analytics.participation_rate_percentage)
     badge = Table(
         [[Paragraph(
@@ -306,7 +296,6 @@ def _render_pdf(
     story.append(badge)
     story.append(Spacer(1, 4 * mm))
 
-    # KPI boxes
     avg_s = analytics.average_shelter_time_ms / 1000
     kpi = Table(
         [[
@@ -348,7 +337,6 @@ def _render_pdf(
         body,
     ))
 
-    # ── Section 2 · Evacuation Trend Analysis ────────────────────────────
     story.extend(_section_heading("2", "Evacuation Trend Analysis"))
     story.append(Spacer(1, 2 * mm))
 
@@ -369,7 +357,6 @@ def _render_pdf(
         caption,
     ))
 
-    # ── Section 3 · Location Safety Matrix ───────────────────────────────
     story.extend(_section_heading("3", "Location Safety Matrix"))
     story.append(Spacer(1, 2 * mm))
 
@@ -397,7 +384,6 @@ def _render_pdf(
         caption,
     ))
 
-    # ── Section 4 · Certification ─────────────────────────────────────────
     story.extend(_section_heading("4", "Certification"))
     story.append(Spacer(1, 2 * mm))
 

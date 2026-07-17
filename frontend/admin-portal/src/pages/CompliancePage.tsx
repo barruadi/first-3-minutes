@@ -3,7 +3,6 @@ import { adminApi, AdminApiError } from '../services/api.js';
 
 const PDF_BUDGET_MS = 3000;
 
-/** Default periode demo: 30 hari terakhir. */
 function defaultPeriod() {
   const to = new Date();
   const from = new Date(to.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -31,15 +30,12 @@ export default function CompliancePage() {
     const controller = new AbortController();
     abortRef.current = controller;
 
-    // Acceptance PRD §8.5: download selesai <= 3 detik pada dataset demo.
-    // Diukur dari klik sampai file tersaji ke browser, bukan hanya request create.
     const started = performance.now();
     setState({ status: 'creating' });
 
     try {
       const report = await adminApi.createComplianceReport(
         {
-          // TIDAK mengirim buildingId — server memakai DEMO_BUILDING_ID (ADR-004).
           periodFrom: new Date(`${from}T00:00:00Z`).toISOString(),
           periodTo: new Date(`${to}T23:59:59Z`).toISOString(),
         },

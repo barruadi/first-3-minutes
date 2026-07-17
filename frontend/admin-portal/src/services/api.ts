@@ -15,10 +15,6 @@ import {
 
 const BASE_URL = import.meta.env['VITE_ADMIN_API_BASE_URL'] ?? '';
 
-// ---------------------------------------------------------------------------
-// Guest drill session types — not yet in @3minutes/contracts
-// ---------------------------------------------------------------------------
-
 export interface GuestSession {
   id: string;
   anchor_id: string;
@@ -33,7 +29,6 @@ interface GuestSessionsResponse {
   sessions: GuestSession[];
 }
 
-/** Minimal inline validator for the guest-sessions response. */
 const GuestSessionsSchema: Validator<GuestSessionsResponse> = {
   safeParse(data: unknown) {
     if (
@@ -47,10 +42,6 @@ const GuestSessionsSchema: Validator<GuestSessionsResponse> = {
     return { success: false };
   },
 };
-
-// ---------------------------------------------------------------------------
-// Guest stats types — not yet in @3minutes/contracts
-// ---------------------------------------------------------------------------
 
 export interface AnchorStatsItem {
   anchorId: string;
@@ -74,7 +65,6 @@ export interface GuestStats {
   anchorStats: AnchorStatsItem[];
 }
 
-/** Minimal inline validator for the guest-stats response. */
 const GuestStatsSchema: Validator<GuestStats> = {
   safeParse(data: unknown) {
     if (
@@ -99,21 +89,12 @@ const GuestStatsSchema: Validator<GuestStats> = {
   },
 };
 
-/**
- * Bentuk minimal schema yang dibutuhkan client. Dideklarasikan secara
- * struktural agar admin-portal tidak perlu mendepend zod secara langsung;
- * seluruh Zod schema memenuhi bentuk ini.
- */
 type Validator<T> = {
   safeParse: (data: unknown) =>
     | { success: true; data: T }
     | { success: false };
 };
 
-/**
- * Error yang membawa `code` stabil dari envelope backend (architecture.md §9).
- * Komponen melakukan branching pada `code`, bukan pada `message`.
- */
 export class AdminApiError extends Error {
   readonly code: string;
   readonly status: number;
@@ -126,7 +107,6 @@ export class AdminApiError extends Error {
   }
 }
 
-/** Pesan ramah pengguna per error code frozen. */
 const MESSAGE_BY_CODE: Record<string, string> = {
   BUILDING_SCOPE_FORBIDDEN: 'Gedung demo belum dikonfigurasi pada server.',
   LOCATION_NOT_FOUND: 'Lokasi tidak ditemukan.',
@@ -142,7 +122,6 @@ async function toApiError(res: Response): Promise<AdminApiError> {
     const { code, message } = parsed.data.error;
     return new AdminApiError(code, MESSAGE_BY_CODE[code] ?? message, res.status);
   }
-  // Server mengembalikan sesuatu di luar envelope — jangan menebak isinya.
   return new AdminApiError('INTERNAL_ERROR', `Server merespons ${res.status}.`, res.status);
 }
 
@@ -152,11 +131,6 @@ type RequestOptions = {
   signal?: AbortSignal | undefined;
 };
 
-/**
- * Memvalidasi response dengan schema frozen. Cast `as T` sebelumnya membuat
- * contract drift muncul sebagai undefined acak di dalam komponen, bukan di
- * batas jaringan tempat penyebabnya terlihat.
- */
 async function request<T>(
   path: string,
   schema: Validator<T>,
@@ -186,7 +160,6 @@ async function request<T>(
   return parsed.data;
 }
 
-/** Untuk QR dan PDF yang dikembalikan sebagai file, bukan JSON. */
 async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
   const { method = 'GET', body, signal } = options;
   const init: RequestInit = { method };
@@ -207,7 +180,6 @@ export const adminApi = {
   getLocations: (signal?: AbortSignal) =>
     request<Location[]>('/api/admin/locations', LocationListSchema, { signal }),
 
-  /** Server membungkus hasil dalam `items`; kembalikan array untuk pemanggil. */
   getFloorPlans: async (signal?: AbortSignal): Promise<FloorPlan[]> => {
     const res = await request('/api/admin/floor-plans', FloorPlanListSchema, { signal });
     return res.items;
@@ -220,11 +192,6 @@ export const adminApi = {
       { method: 'POST', signal }
     ),
 
-  /**
-   * TIDAK mengirim buildingId. Server SELALU memakai DEMO_BUILDING_ID dari
-   * settings dan mengabaikan scope building dari client (ADR-004,
-   * architecture.md §10.6/§11).
-   */
   createComplianceReport: (body: ComplianceReportRequest, signal?: AbortSignal) =>
     request<ComplianceReportResponse>(
       '/api/admin/compliance-reports',

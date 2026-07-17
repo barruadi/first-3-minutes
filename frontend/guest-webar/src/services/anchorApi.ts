@@ -1,9 +1,3 @@
-/**
- * API client for the new anchor-based drill flow.
- * Backend: GET /api/anchors/{anchorId}
- *          POST /api/guest/drill-session
- */
-
 const BASE_URL = import.meta.env['VITE_GUEST_API_BASE_URL'] ?? 'http://localhost:8000';
 const NGROK_HEADERS = BASE_URL.includes('.ngrok-free.')
   ? { 'ngrok-skip-browser-warning': '1' }
@@ -54,10 +48,6 @@ export class AnchorApiError extends Error {
   }
 }
 
-/**
- * Fetch anchor data for a given anchor UUID.
- * Throws AnchorApiError on failure.
- */
 export async function fetchAnchor(
   anchorId: string,
   signal?: AbortSignal
@@ -101,10 +91,6 @@ export async function fetchAnchor(
   return data;
 }
 
-/**
- * Submit drill session result.
- * Fire-and-forget safe: does not throw on non-critical failure.
- */
 export async function submitDrillSession(
   payload: DrillSessionPayload
 ): Promise<DrillSessionResponse | null> {

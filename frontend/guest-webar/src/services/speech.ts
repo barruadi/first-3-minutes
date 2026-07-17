@@ -5,13 +5,6 @@ import {
 } from '@3minutes/contracts';
 import { guidanceToSpeech, isSameGuidance } from './guidance.js';
 
-/**
- * Browser speech synthesis untuk panduan Guest (D4-ACC-01).
- *
- * Menerapkan GUIDANCE_AUDIO_POLICY frozen agar Guest dan Resident (Expo TTS)
- * berperilaku sama: event identik di-debounce, event CRITICAL menginterupsi
- * ucapan yang sedang berjalan dan menurunkan volume ambience sementara.
- */
 export class GuidanceSpeaker {
   private mode: AccessibilityMode;
   private lastEvent: GuidanceEvent | null = null;
@@ -19,7 +12,6 @@ export class GuidanceSpeaker {
   private readonly supported: boolean;
   private duckTimer: ReturnType<typeof setTimeout> | null = null;
 
-  /** Elemen audio ambience yang diturunkan volumenya saat pengumuman CRITICAL. */
   private ambience: HTMLAudioElement | null = null;
   private ambienceBaseVolume = 1;
 
@@ -43,10 +35,6 @@ export class GuidanceSpeaker {
     return this.mode === 'VISUAL_AND_AUDIO' || this.mode === 'AUDIO_PRIMARY';
   }
 
-  /**
-   * Mengucapkan event bila kebijakan mengizinkan.
-   * @returns true bila benar-benar diucapkan.
-   */
   announce(event: GuidanceEvent, nowMs: number = Date.now()): boolean {
     if (!this.audioEnabled || !this.supported) return false;
 
@@ -55,7 +43,6 @@ export class GuidanceSpeaker {
     const withinDebounce =
       nowMs - this.lastSpokenAtMs < GUIDANCE_AUDIO_POLICY.duplicateDebounceMs;
 
-    // Event identik tidak diulang tiap frame. Event CRITICAL baru selalu lolos.
     if (isDuplicate && withinDebounce) return false;
 
     const utterance = new SpeechSynthesisUtterance(guidanceToSpeech(event));
@@ -63,8 +50,6 @@ export class GuidanceSpeaker {
     utterance.rate = isCritical ? 1.1 : 1.0;
 
     if (isCritical) {
-      // CRITICAL menginterupsi ucapan berjalan; jangan antre di belakang
-      // instruksi lama yang sudah tidak relevan.
       window.speechSynthesis.cancel();
       this.duckAmbience();
       utterance.onend = () => this.restoreAmbience();
@@ -104,7 +89,6 @@ export class GuidanceSpeaker {
     this.restoreAmbience();
   }
 
-  /** Wajib dipanggil saat unmount — speechSynthesis bersifat global. */
   dispose(): void {
     this.cancel();
     this.lastEvent = null;

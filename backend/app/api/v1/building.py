@@ -27,11 +27,7 @@ from app.services.storage import storage_path
 
 router = APIRouter(tags=["building"])
 
-# ---------------------------------------------------------------------------
-# Internal helpers
-# ---------------------------------------------------------------------------
-
-FLOOR_PLAN_MAX_BYTES = 50 * 1024 * 1024  # 50 MB
+FLOOR_PLAN_MAX_BYTES = 50 * 1024 * 1024
 
 
 def _floor_plan_url(scan_id: str) -> str:
@@ -75,10 +71,6 @@ def _get_anchor_or_404(db: Session, anchor_id: str) -> BuildingAnchor:
         raise ApiException(404, "ANCHOR_NOT_FOUND", "Anchor tidak ditemukan.")
     return anchor
 
-
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
 
 @router.post("/buildings/scan", response_model=BuildingScanResponse, status_code=201)
 async def create_building_scan(
@@ -192,7 +184,6 @@ def delete_anchor(
     )
     if anchor is None:
         raise ApiException(404, "ANCHOR_NOT_FOUND", "Anchor tidak ditemukan dalam scan ini.")
-    # Remove drill sessions that reference this anchor before deleting the anchor itself.
     db.execute(sa_delete(GuestDrillSession).where(GuestDrillSession.anchor_id == anchor_id))
     db.delete(anchor)
     db.commit()
@@ -286,14 +277,12 @@ def list_guest_sessions(
     query = select(GuestDrillSession).order_by(GuestDrillSession.created_at.desc())
 
     if scan_id is not None:
-        # Filter sessions whose anchor belongs to the given scan
         query = query.join(
             BuildingAnchor, GuestDrillSession.anchor_id == BuildingAnchor.id
         ).where(BuildingAnchor.scan_id == scan_id)
 
     sessions = db.scalars(query).all()
 
-    # Batch-load anchor names
     anchor_ids = {s.anchor_id for s in sessions}
     anchors_by_id: dict[str, BuildingAnchor] = {}
     if anchor_ids:
@@ -343,7 +332,6 @@ def get_guest_stats(db: Session = Depends(get_db)) -> GuestStatsResponse:
             anchor_stats=[],
         )
 
-    # Load all referenced anchors
     anchor_ids = {s.anchor_id for s in sessions}
     anchors_by_id: dict[str, BuildingAnchor] = {}
     if anchor_ids:
@@ -352,7 +340,6 @@ def get_guest_stats(db: Session = Depends(get_db)) -> GuestStatsResponse:
         ).all()
         anchors_by_id = {a.id: a for a in rows}
 
-    # Group sessions by anchor_id
     grouped: dict[str, list[GuestDrillSession]] = defaultdict(list)
     for s in sessions:
         grouped[s.anchor_id].append(s)
@@ -389,7 +376,6 @@ def get_guest_stats(db: Session = Depends(get_db)) -> GuestStatsResponse:
     ar_used_count = sum(1 for s in sessions if s.used_ar)
     ar_usage_rate = ar_used_count / total_sessions * 100 if total_sessions else 0.0
 
-    # Bottleneck anchor: highest avg duration among anchors with data
     bottleneck_anchor: str | None = None
     stats_with_duration = [a for a in anchor_stats if a.avg_duration_seconds is not None]
     if stats_with_duration:

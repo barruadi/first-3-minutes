@@ -14,7 +14,7 @@ export default function AppShell() {
     <div className="app-shell">
       <nav className="app-nav" aria-label="Navigasi utama">
         <div className="app-brand">
-          3MINUTES
+          Evacuo
           <div style={{ fontSize: 11, opacity: 0.6, fontWeight: 400, marginTop: 2 }}>Admin Portal</div>
         </div>
         {NAV_ITEMS.map((item) => (

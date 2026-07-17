@@ -98,9 +98,6 @@ app.include_router(guest.router, prefix=api_prefix)
 app.include_router(location.router, prefix=api_prefix)
 app.include_router(building.router, prefix=api_prefix)
 
-# Serve uploaded floor plans and meshes as static files.
-# Files are stored in storage/floor_plans/ and storage/meshes/.
-# They are accessible via /uploads/floor_plans/<id>.png and /uploads/meshes/<id>.obj.
 _floor_plans_dir = storage_path("floor_plans", "placeholder").parent
 _meshes_dir = storage_path("meshes", "placeholder").parent
 app.mount("/uploads/floor_plans", StaticFiles(directory=str(_floor_plans_dir)), name="floor_plans")

@@ -38,7 +38,7 @@ export function useStepTracking(
           const state = await anyDME.requestPermission();
           if (cancelled || state !== 'granted') return;
         } catch {
-          return; // permission unavailable — degrade silently
+          return;
         }
       }
       if (cancelled) return;
@@ -56,7 +56,6 @@ export function useStepTracking(
           if (now - lastStepMs.current < STEP_DEBOUNCE_MS) return;
           lastStepMs.current = now;
 
-          // Project step in the direction the user is facing.
           const rad = (headingRef.current * Math.PI) / 180;
           positionRef.current = {
             x: positionRef.current.x + Math.sin(rad) * STEP_LENGTH_M,

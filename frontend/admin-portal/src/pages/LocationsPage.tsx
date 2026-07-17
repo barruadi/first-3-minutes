@@ -40,8 +40,6 @@ export default function LocationsPage() {
       if (controller.signal.aborted) return;
       setLocations(locs);
 
-      // Endpoint floor plan belum diimplementasikan Domain 3 (D3-003).
-      // Kegagalannya tidak boleh menjatuhkan daftar lokasi.
       try {
         const plans = await adminApi.getFloorPlans(controller.signal);
         if (!controller.signal.aborted) {

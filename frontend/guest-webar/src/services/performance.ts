@@ -1,8 +1,3 @@
-/**
- * Pengukuran startup dan FPS Guest WebAR.
- * Acceptance PRD §9: scene operational <= 3 detik setelah landing; target 60 FPS.
- */
-
 export const MARK_LANDING = 'guest_landing';
 export const MARK_OPERATIONAL = 'guest_scene_operational';
 export const MEASURE_STARTUP = 'guest_startup_duration';
@@ -12,10 +7,6 @@ export const FPS_TARGET = 60;
 
 let marked = false;
 
-/**
- * Ditandai saat arrow pertama yang berguna sudah dirender — bukan saat scene
- * dibuat. Scene kosong yang siap tidak memenuhi "operational".
- */
 export function markSceneOperational(): number | null {
   if (marked || typeof performance === 'undefined') return null;
   if (!performance.getEntriesByName(MARK_LANDING).length) return null;
@@ -42,10 +33,6 @@ export function resetStartupMarks(): void {
   performance.clearMeasures(MEASURE_STARTUP);
 }
 
-/**
- * Sampler frame time. Menyimpan ring buffer tetap; tidak mengalokasi per frame
- * agar pengukuran tidak mengubah hal yang diukur.
- */
 export class FpsSampler {
   private readonly deltas: Float32Array;
   private index = 0;

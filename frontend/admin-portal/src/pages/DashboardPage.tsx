@@ -30,7 +30,6 @@ export default function DashboardPage() {
     resetDashboardMarks();
     performance.mark(MARK_NAV_START);
 
-    // Fetch both in parallel; guest stats failure is non-blocking
     const [analyticsResult] = await Promise.allSettled([
       adminApi.getAnalytics(controller.signal).catch(() => null),
       adminApi.getGuestStats(statsController.signal)
@@ -51,11 +50,6 @@ export default function DashboardPage() {
     return () => abortRef.current?.abort();
   }, [load]);
 
-  /**
-   * dashboard_ready ditandai setelah SELURUH widget wajib ter-commit ke DOM,
-   * bukan saat fetch selesai. useLayoutEffect berjalan setelah commit dan
-   * sebelum paint berikutnya.
-   */
   useLayoutEffect(() => {
     if (!loading && !error) markDashboardReady();
   }, [loading, error]);
@@ -86,7 +80,6 @@ export default function DashboardPage() {
         </button>
       </header>
 
-      {/* Guest-session headline stats — primary source of truth */}
       <div
         style={{
           display: 'grid',
@@ -161,7 +154,6 @@ export default function DashboardPage() {
         </Section>
       )}
 
-      {/* Legacy Domain-3 analytics — shown only if server has data */}
       {data && (data.escapeRouteTrends.length > 0 || data.heatmapCells.length > 0) && (
         <>
           <Section title="Tren Rute Evakuasi">
