@@ -7,7 +7,6 @@ import { adminApi, AdminApiError } from '../services/api.js';
 
 const API_BASE = import.meta.env['VITE_ADMIN_API_BASE_URL'] ?? 'http://localhost:8000';
 
-/** URL QR bersifat relatif terhadap API; jadikan absolut untuk unduhan. */
 function absolute(url: string): string {
   return url.startsWith('http') ? url : `${API_BASE}${url}`;
 }
@@ -35,7 +34,6 @@ export default function LocationDetailPage() {
     setLoading(true);
     setLoadError(null);
     try {
-      // Tidak ada endpoint detail lokasi pada contract v1; ambil dari list.
       const all = await adminApi.getLocations(controller.signal);
       if (controller.signal.aborted) return;
       setLocation(all.find((l) => l.id === locationId) ?? null);
@@ -95,7 +93,6 @@ export default function LocationDetailPage() {
     );
   }
 
-  // Guardrail D4-QR-GENERATE: tombol hanya aktif bila lokasi valid.
   const canGenerate = qr.status !== 'generating';
 
   return (

@@ -1,28 +1,12 @@
 import type { Coordinate3D, GuestRoute, GuidanceEvent } from '@3minutes/contracts';
 
-/**
- * Guidance decision engine untuk Guest WebAR (D4-GUEST-ACCESSIBILITY).
- *
- * Menghasilkan GuidanceEvent semantik dari rute, posisi, dan heading. Fungsi
- * murni agar dapat diuji tanpa kamera atau perangkat.
- *
- * Guardrail: event TIDAK PERNAH merujuk panah, warna, ikon, atau label. Dalam
- * mode AUDIO_PRIMARY, tamu harus dapat mengikuti rute tanpa melihat layar.
- */
-
-/** Radius dianggap sudah mencapai waypoint. */
 const WAYPOINT_REACHED_M = 1.0;
-/** Jarak mulai mengumumkan belokan. */
 const TURN_ANNOUNCE_M = 3.0;
-/** Sudut minimum yang dianggap belokan, bukan lurus. */
 const TURN_THRESHOLD_DEG = 25;
-/** Jarak hazard yang memicu peringatan menghindar. */
 const HAZARD_NEAR_M = 2.0;
 
 export type Pose = {
-  /** Posisi relatif terhadap origin marker, meter. */
   position: Coordinate3D;
-  /** Arah hadap, derajat searah jarum jam dari sumbu -Z. */
   headingDeg: number;
 };
 
@@ -30,7 +14,6 @@ function distance2D(a: Coordinate3D, b: Coordinate3D): number {
   return Math.hypot(a.x - b.x, a.z - b.z);
 }
 
-/** Sudut ke target relatif terhadap heading, dinormalisasi ke [-180, 180]. */
 function relativeBearingDeg(from: Coordinate3D, to: Coordinate3D, headingDeg: number): number {
   const bearing = Math.atan2(to.x - from.x, -(to.z - from.z)) * (180 / Math.PI);
   let rel = bearing - headingDeg;
@@ -53,13 +36,12 @@ function isWaypointPassed(prev: Coordinate3D, wp: Coordinate3D, userPos: Coordin
   return proj > segLen - WAYPOINT_REACHED_M;
 }
 
-/** Waypoint aktif = titik rute pertama yang belum tercapai. */
 export function activeWaypointIndex(route: GuestRoute, pose: Pose): number {
   for (let i = 0; i < route.routePoints.length; i++) {
     const prev: Coordinate3D = i === 0 ? route.origin : route.routePoints[i - 1]!;
     if (!isWaypointPassed(prev, route.routePoints[i]!, pose.position)) return i;
   }
-  return route.routePoints.length; // seluruh waypoint terlewati -> menuju exit
+  return route.routePoints.length;
 }
 
 function nearestHazard(route: GuestRoute, pose: Pose): { point: Coordinate3D; dist: number } | null {
@@ -75,18 +57,10 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10;
 }
 
-/**
- * Menghitung satu event panduan untuk pose saat ini.
- *
- * Prioritas: hazard terdekat (CRITICAL) > tiba di exit (CRITICAL) > belokan >
- * lurus. Hanya satu instruksi primer pada satu waktu (design.md §2.3).
- */
 export function computeGuidance(route: GuestRoute, pose: Pose): GuidanceEvent {
-  // 1. Hazard mengalahkan segalanya — ini instruksi keselamatan.
   const hazard = nearestHazard(route, pose);
   if (hazard && hazard.dist <= HAZARD_NEAR_M) {
     const rel = relativeBearingDeg(pose.position, hazard.point, pose.headingDeg);
-    // Hazard di kanan -> hindari ke kiri, dan sebaliknya.
     return {
       action: rel >= 0 ? 'AVOID_LEFT' : 'AVOID_RIGHT',
       distanceMeters: round1(hazard.dist),
@@ -99,37 +73,27 @@ export function computeGuidance(route: GuestRoute, pose: Pose): GuidanceEvent {
   const dist = distance2D(pose.position, target);
   const isFinalLeg = idx >= route.routePoints.length;
 
-  // 2. Sudah sampai exit.
   if (isFinalLeg && dist <= WAYPOINT_REACHED_M) {
     return { action: 'ARRIVED', priority: 'CRITICAL' };
   }
 
   const rel = relativeBearingDeg(pose.position, target, pose.headingDeg);
 
-  // 3. Exit sudah terlihat lurus di depan.
   if (isFinalLeg && Math.abs(rel) < TURN_THRESHOLD_DEG) {
     return { action: 'EXIT_AHEAD', distanceMeters: round1(dist), priority: 'CRITICAL' };
   }
 
-  // 4. Belokan.
   if (Math.abs(rel) >= TURN_THRESHOLD_DEG) {
     return {
       action: rel > 0 ? 'TURN_RIGHT' : 'TURN_LEFT',
-      // Jarak hanya relevan bila beloknya masih agak jauh.
       ...(dist <= TURN_ANNOUNCE_M ? { distanceMeters: round1(dist) } : {}),
       priority: 'NORMAL',
     };
   }
 
-  // 5. Lurus.
   return { action: 'GO_STRAIGHT', distanceMeters: round1(dist), priority: 'NORMAL' };
 }
 
-/**
- * Event -> kalimat bahasa Indonesia berbentuk tindakan.
- *
- * Guardrail: tidak boleh menyebut panah, warna, ikon, atau tombol berwarna.
- */
 export function guidanceToSpeech(event: GuidanceEvent): string {
   const d = event.distanceMeters;
   const inMeters = d !== undefined ? `Dalam ${d} meter, ` : '';
@@ -160,7 +124,6 @@ export function guidanceToSpeech(event: GuidanceEvent): string {
   }
 }
 
-/** Dua event dianggap sama bila action sama — jarak berubah tiap frame. */
 export function isSameGuidance(a: GuidanceEvent | null, b: GuidanceEvent): boolean {
   return a !== null && a.action === b.action;
 }

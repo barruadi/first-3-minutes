@@ -18,12 +18,8 @@ export function validateFloorPlanFile(file: File): string | null {
 }
 
 /**
- * Upload floor plan dengan progress.
- *
- * Memakai XMLHttpRequest, bukan fetch: fetch tidak memaparkan upload progress
- * sama sekali, sedangkan D4-FLOOR-UPLOAD mewajibkan indikator progress.
- *
- * TIDAK mengirim buildingId — server memakai DEMO_BUILDING_ID (ADR-004).
+ * Uses XMLHttpRequest instead of fetch because fetch doesn't expose upload
+ * progress events, which are needed for the progress indicator.
  */
 export function uploadFloorPlan(
   file: File,

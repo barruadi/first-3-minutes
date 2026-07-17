@@ -22,14 +22,13 @@ import { useStepTracking } from '../hooks/useStepTracking.js';
 
 interface Props {
   route: GuestRoute;
-  /** Stream sudah diperoleh lewat gesture di RescuePage; jangan minta ulang. */
   stream: MediaStream;
   mode: AccessibilityMode;
   onModeChange: (m: AccessibilityMode) => void;
   onSceneReady: () => void;
 }
 
-const ARROW_COLOR  = 0x39ff14; // neon green (design.md §1)
+const ARROW_COLOR  = 0x39ff14;
 const EYE_HEIGHT_M = 1.6;
 
 const MODE_LABELS: Record<AccessibilityMode, string> = {
@@ -48,10 +47,8 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
   const [guidance, setGuidance]                     = useState<GuidanceEvent | null>(null);
   const [orientationBlocked, setOrientationBlocked] = useState(false);
 
-  // Dead-reckoned position from QR origin, updated each detected step.
   const positionRef = useStepTracking(headingRef);
 
-  // Speaker follows mode without rebuilding scene.
   useEffect(() => {
     if (!speakerRef.current) speakerRef.current = new GuidanceSpeaker(mode);
     else speakerRef.current.setMode(mode);
@@ -64,7 +61,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
     };
   }, []);
 
-  // Device heading — iOS requires explicit DeviceOrientation permission.
   useEffect(() => {
     let cancelled = false;
 
@@ -103,7 +99,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
     };
   }, []);
 
-  // Attach stream to video element.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -112,7 +107,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
     return () => { video.srcObject = null; };
   }, [stream]);
 
-  // Build scene once per route.
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
@@ -150,8 +144,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
       side:        DoubleSide,
     });
 
-    // Build chevrons along each route segment.
-    // segmentMeta links each Group to its target-waypoint index for culling.
     const arrowsRoot  = new Group();
     const segmentMeta: Array<{ group: Group; wpIdx: number }> = [];
     const waypoints   = [...route.routePoints, route.exitPoint] as Coordinate3D[];
@@ -218,7 +210,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
         onSceneReady();
       }
 
-      // Guidance and segment culling at ~4 Hz — no per-frame allocations.
       if (nowMs - lastGuidanceAt > 250) {
         lastGuidanceAt = nowMs;
         const pose      = { position: positionRef.current, headingDeg: headingRef.current };
@@ -226,7 +217,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
         const activeIdx = activeWaypointIndex(route, pose);
         setGuidance(event);
         speakerRef.current?.announce(event, nowMs);
-        // Hide chevrons for segments the user has already walked through.
         for (const { group, wpIdx } of segmentMeta) {
           group.visible = wpIdx >= activeIdx;
         }

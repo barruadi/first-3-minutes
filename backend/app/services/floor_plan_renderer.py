@@ -1,8 +1,3 @@
-"""Render a top-down floor plan PNG from a Wavefront OBJ mesh.
-
-This mirrors the resident iOS LiDAR renderer's 512 px square projection and
-0.3 m padding, but accepts an exported OBJ so fixtures can be reproduced.
-"""
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -63,7 +58,6 @@ def render_obj_floor_plan(obj_path: Path, output_path: Path) -> FloorPlanMetadat
     image = Image.new("L", (IMAGE_SIZE, IMAGE_SIZE), color=235)
     draw = ImageDraw.Draw(image)
 
-    # Horizontal surfaces establish the navigable floor and furniture footprint.
     for face in faces:
         points_3d = [vertices[index] for index in face]
         y_values = [point[1] for point in points_3d]
@@ -71,7 +65,6 @@ def render_obj_floor_plan(obj_path: Path, output_path: Path) -> FloorPlanMetadat
             shade = 255 if max(y_values) < 0.15 else 190
             draw.polygon([project(point) for point in points_3d], fill=shade)
 
-    # Vertical faces become dark wall/obstacle lines in the top-down view.
     for face in faces:
         points_3d = [vertices[index] for index in face]
         y_values = [point[1] for point in points_3d]

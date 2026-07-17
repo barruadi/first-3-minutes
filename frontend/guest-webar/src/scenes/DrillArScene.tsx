@@ -20,7 +20,6 @@ import { FpsSampler } from '../services/performance.js';
 import { useStepTracking } from '../hooks/useStepTracking.js';
 import type { AnchorData, AnchorSummary } from '../services/anchorApi.js';
 
-// Canvas size must match MapPage's CANVAS_SIZE constant.
 const CANVAS_SIZE  = 512;
 const ARROW_COLOR  = 0x39ff14;
 const EYE_HEIGHT_M = 1.6;
@@ -84,9 +83,7 @@ function formatTime(secs: number): string {
 
 interface Props {
   anchorData: AnchorData;
-  /** All anchors for the scan (exit anchor provides world-coord fallback). */
   anchors: AnchorSummary[];
-  /** A* or Dijkstra path in canvas-pixel coordinates from MapPage. */
   pathPoints: PathPoint[];
   elapsed: number;
   onBack: () => void;
@@ -115,7 +112,6 @@ export default function DrillArScene({
     [pathPoints, anchorData, anchors],
   );
 
-  // Camera — permission was already granted in ScanPage, so no gesture needed.
   useEffect(() => {
     let cancelled = false;
     let acquired: MediaStream | null = null;
@@ -133,7 +129,6 @@ export default function DrillArScene({
     };
   }, []);
 
-  // Attach stream to video element.
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !stream) return;
@@ -142,7 +137,6 @@ export default function DrillArScene({
     return () => { video.srcObject = null; };
   }, [stream]);
 
-  // Device orientation — pitch + heading.
   useEffect(() => {
     let cancelled = false;
     let listener: ((e: DeviceOrientationEvent) => void) | null = null;
@@ -175,7 +169,6 @@ export default function DrillArScene({
     };
   }, []);
 
-  // Three.js scene — rebuilt when route or stream changes.
   useEffect(() => {
     if (!stream) return;
     const mount = mountRef.current;
@@ -194,7 +187,6 @@ export default function DrillArScene({
     const camera = new PerspectiveCamera(75, width / height, 0.1, 100);
     camera.position.set(0, EYE_HEIGHT_M, 0);
 
-    // Flat chevron: XY shape, rotated to XZ floor plane.
     const shape = new Shape();
     shape.moveTo( 0,     0.28);
     shape.lineTo( 0.22, -0.18);
@@ -325,7 +317,6 @@ export default function DrillArScene({
       />
       <div ref={mountRef} style={{ position: 'absolute', inset: 0 }} />
 
-      {/* Top bar */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0,
         padding: '20px 16px',
@@ -343,7 +334,6 @@ export default function DrillArScene({
         </div>
       </div>
 
-      {/* Guidance text */}
       <div
         aria-live="assertive"
         style={{
@@ -364,7 +354,6 @@ export default function DrillArScene({
         </div>
       </div>
 
-      {/* Exit button */}
       <div style={{ position: 'absolute', bottom: 36, left: 16, right: 16, zIndex: 10 }}>
         <button
           onClick={onReachedExit}

@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import type { GuestRoute } from '@3minutes/contracts';
 import { computeGuidance, guidanceToSpeech, activeWaypointIndex } from '../guidance.js';
 
-/** Rute lurus ke depan (-Z), exit 5 m di depan. */
 const straightRoute: GuestRoute = {
   locationRef: 'floor-4-room-402',
   origin: { x: 0, y: 0, z: 0 },
@@ -33,7 +32,6 @@ describe('computeGuidance', () => {
   });
 
   it('turns right when the waypoint sits to the right of heading', () => {
-    // Menghadap -Z, waypoint di +X -> belok kanan.
     const route: GuestRoute = { ...straightRoute, routePoints: [{ x: 5, y: 0, z: 0 }] };
     expect(computeGuidance(route, atOrigin).action).toBe('TURN_RIGHT');
   });
@@ -60,7 +58,6 @@ describe('computeGuidance', () => {
   it('lets a near hazard override normal navigation, as CRITICAL', () => {
     const route: GuestRoute = { ...straightRoute, hazardPoints: [{ x: 1, y: 0, z: -1 }] };
     const event = computeGuidance(route, atOrigin);
-    // Hazard di kanan -> menghindar ke kiri.
     expect(event.action).toBe('AVOID_LEFT');
     expect(event.priority).toBe('CRITICAL');
   });
@@ -72,8 +69,6 @@ describe('computeGuidance', () => {
 });
 
 describe('guidanceToSpeech', () => {
-  // Guardrail architecture.md §8.8 / PRD §6.6: panduan suara tidak boleh
-  // bergantung pada panah, warna, ikon, atau teks berwarna.
   const forbidden = ['panah', 'hijau', 'merah', 'warna', 'ikon', 'tombol', 'layar'];
 
   const allActions = [

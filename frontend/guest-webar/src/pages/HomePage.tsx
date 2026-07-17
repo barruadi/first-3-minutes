@@ -10,11 +10,9 @@ const C = {
   white:         '#FFFFFF',
 };
 
-// ── Animation constants ───────────────────────────────────────────────────────
-const DUR     = 360; // ms — duration per element
-const STAGGER = 75;  // ms — delay between elements
+const DUR     = 360;
+const STAGGER = 75;
 
-// ── Step definitions ──────────────────────────────────────────────────────────
 const STEPS = [
   {
     icon: (
@@ -52,8 +50,6 @@ const STEPS = [
     label: 'Follow the AR arrows to the exit',
   },
 ];
-
-// ── Component ─────────────────────────────────────────────────────────────────
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -95,7 +91,6 @@ export default function HomePage() {
           overflowX: 'hidden',
         }}
       >
-        {/* ── Brand mark ── */}
         <div style={{ textAlign: 'center', ...anim(0) }}>
           <div
             style={{
@@ -144,7 +139,6 @@ export default function HomePage() {
           </p>
         </div>
 
-        {/* ── Steps card ── */}
         <div
           style={{
             background: C.white,
@@ -192,7 +186,6 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* ── CTA ── */}
         <div
           style={{
             width: '100%',

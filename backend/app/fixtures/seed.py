@@ -96,22 +96,18 @@ def seed(db: Session) -> None:
         demo_origin_z,
     ) = _seed_evacuation_assets()
 
-    # Organization
     if not db.get(Organization, DEMO["org_id"]):
         db.add(Organization(id=DEMO["org_id"], name="Demo Organization"))
     db.flush()
 
-    # Building
     if not db.get(Building, DEMO["building_id"]):
         db.add(Building(id=DEMO["building_id"], organization_id=DEMO["org_id"], name="Demo Building", status="active"))
     db.flush()
 
-    # Floor plan
     if not db.get(FloorPlan, DEMO["floorplan_id"]):
         db.add(FloorPlan(id=DEMO["floorplan_id"], building_id=DEMO["building_id"], name="Lantai 4"))
     db.flush()
 
-    # Location
     if not db.get(Location, DEMO["location_id"]):
         db.add(Location(
             id=DEMO["location_id"],
@@ -125,7 +121,6 @@ def seed(db: Session) -> None:
         ))
     db.flush()
 
-    # Device profiles (resident + admin demo)
     for inst_id in [DEMO["resident_id"], DEMO["admin_id"]]:
         if not db.get(DeviceProfile, inst_id):
             db.add(DeviceProfile(
@@ -135,7 +130,6 @@ def seed(db: Session) -> None:
                 last_drill_at=datetime(2026, 7, 16) if inst_id == DEMO["resident_id"] else None,
             ))
 
-    # Spatial scan
     if not db.get(SpatialScan, DEMO["scan_id"]):
         db.add(SpatialScan(
             id=DEMO["scan_id"],
@@ -150,7 +144,6 @@ def seed(db: Session) -> None:
         ))
     db.flush()
 
-    # Spatial map for demo scan
     existing_map = db.query(SpatialMap).filter_by(scan_id=DEMO["scan_id"]).first()
     if not existing_map:
         db.add(SpatialMap(
@@ -163,7 +156,6 @@ def seed(db: Session) -> None:
             source="fallback",
         ))
 
-    # Demo drill
     if not db.get(Drill, DEMO["drill_id"]):
         db.add(Drill(
             id=DEMO["drill_id"],
@@ -201,7 +193,6 @@ def seed(db: Session) -> None:
             issued_at=datetime(2026, 7, 16),
         ))
 
-    # QR token
     qr_hash = hashlib.sha256(
         f"{settings.qr_token_secret}:{DEMO['qr_raw_token']}".encode("utf-8")
     ).hexdigest()
@@ -213,8 +204,6 @@ def seed(db: Session) -> None:
             location_id=DEMO["location_id"],
         ))
 
-    # Standalone AR evacuation example. The route starts near the room's desk,
-    # bends around the cabinet hazard, and ends at the doorway in the +Z wall.
     evacuation_room = db.get(BuildingScan, DEMO["evacuation_room_id"])
     if evacuation_room is None:
         evacuation_room = BuildingScan(

@@ -38,10 +38,6 @@ class QrProvisionResponse(CamelModel):
 
 
 class ComplianceReportRequest(CamelModel):
-    # Opsional dan diabaikan: create_report() memakai settings.demo_building_id
-    # (architecture.md §10.6/§11). Sebelumnya wajib, sehingga client dipaksa
-    # mengirim building scope yang justru dibuang server. Mengikuti pola
-    # LocationCreateRequest.building_id di file ini.
     building_id: str | None = None
     period_from: datetime
     period_to: datetime

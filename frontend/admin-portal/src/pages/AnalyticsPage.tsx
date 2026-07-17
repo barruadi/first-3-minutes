@@ -4,9 +4,6 @@ import LoadingState from '../components/LoadingState.js';
 import EmptyState from '../components/EmptyState.js';
 import ErrorState from '../components/ErrorState.js';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-/** Maps 0–100 completion rate to a green/amber/red hue. */
 function completionColor(rate: number): string {
   return `hsl(${rate * 1.2}, 58%, 38%)`;
 }
@@ -16,8 +13,6 @@ function fmtDur(s: number): string {
   const sec = s % 60;
   return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
 }
-
-// ── Derived metrics from raw sessions ────────────────────────────────────────
 
 interface Metrics {
   byHour: number[];          // 0–23
@@ -67,8 +62,6 @@ function deriveMetrics(sessions: GuestSession[]): Metrics {
     completedCount,
   };
 }
-
-// ── SVG bar chart (no external dependency) ────────────────────────────────────
 
 const SVG_W = 520;
 const SVG_H = 110;
@@ -121,8 +114,6 @@ function BarChart({
     </svg>
   );
 }
-
-// ── Route traffic heatmap ─────────────────────────────────────────────────────
 
 function AnchorHeatmap({ anchors }: { anchors: GuestStats['anchorStats'] }) {
   if (anchors.length === 0) return <EmptyState message="Belum ada data titik QR." />;
@@ -180,8 +171,6 @@ function AnchorHeatmap({ anchors }: { anchors: GuestStats['anchorStats'] }) {
   );
 }
 
-// ── Completion funnel ─────────────────────────────────────────────────────────
-
 function Funnel({ total, arUsed, completed }: { total: number; arUsed: number; completed: number }) {
   const steps = [
     { label: 'Mulai Sesi', sub: 'QR dipindai', value: total, color: 'var(--color-primary-900)' },
@@ -226,8 +215,6 @@ function Funnel({ total, arUsed, completed }: { total: number; arUsed: number; c
     </div>
   );
 }
-
-// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
   const [sessions, setSessions] = useState<GuestSession[] | null>(null);
@@ -276,7 +263,6 @@ export default function AnalyticsPage() {
     return `${dt.getDate()}/${dt.getMonth() + 1}`;
   });
 
-  // Hourly pattern: low at night, peak 09:00 and 15:00 blocks
   const hourlyValues = [1, 0, 2, 15, 10, 18, 8, 2];
   const hourlyLabels = Array(8).fill(0).map((_, i) => `${i * 3}:00`);
 
@@ -296,7 +282,6 @@ export default function AnalyticsPage() {
         </button>
       </header>
 
-      {/* Funnel */}
       {stats && (
         <section style={{ marginBottom: 32 }}>
           <SectionTitle>Corong Penyelesaian</SectionTitle>
@@ -308,14 +293,12 @@ export default function AnalyticsPage() {
         </section>
       )}
 
-      {/* Route traffic heatmap */}
       {stats && stats.anchorStats.length > 0 && (
         <Card title="Heatmap Rute — Volume & Penyelesaian per Titik QR">
           <AnchorHeatmap anchors={stats.anchorStats} />
         </Card>
       )}
 
-      {/* Bottleneck callout */}
       {stats?.bottleneckAnchor && (
         <div style={{
           background: 'rgba(154,28,28,0.06)',
@@ -333,7 +316,6 @@ export default function AnalyticsPage() {
         </div>
       )}
 
-      {/* Daily trend + hourly grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32 }}>
         <Card title="Tren Harian (14 Hari Terakhir)">
           <BarChart
@@ -356,7 +338,6 @@ export default function AnalyticsPage() {
         </Card>
       </div>
 
-      {/* Duration distribution */}
       {m && m.completedCount > 0 && (
         <Card title={`Distribusi Durasi Sesi Selesai (${m.completedCount} sesi)`}>
           <BarChart
@@ -371,7 +352,6 @@ export default function AnalyticsPage() {
         </Card>
       )}
 
-      {/* AR adoption */}
       {stats && (
         <Card title="Adopsi Fitur AR">
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap', alignItems: 'center' }}>

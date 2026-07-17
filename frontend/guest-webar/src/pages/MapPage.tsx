@@ -3,22 +3,19 @@ import { useNavigate } from 'react-router-dom';
 import type { AnchorData, AnchorSummary } from '../services/anchorApi.js';
 import DrillArScene from '../scenes/DrillArScene.js';
 
-// Canvas constants
 const CANVAS_SIZE = 512;
 const PADDING_FRACTION = 0.1;
 const DOT_RADIUS = 10;
 const LABEL_FONT = '700 12px system-ui, sans-serif';
-const GRID_SIZE = 256; // occupancy grid resolution for A*
+const GRID_SIZE = 256;
 
-// Safety colors (canvas is safety context)
 const COLOR_CURRENT = '#39FF14';
 const COLOR_EXIT = '#00E5FF';
 const COLOR_OTHER = '#888';
 const COLOR_LINE = '#FF3B30';
-const COLOR_CUSTOM = '#FF9500'; // orange — user-drawn path
+const COLOR_CUSTOM = '#FF9500';
 const COLOR_CANVAS_BG = '#0A2947';
 
-// Brand colors for UI chrome
 const C = {
   navy: '#0A2947',
   navyLight: '#0E3560',
@@ -78,8 +75,6 @@ function buildPixelCoords(anchors: AnchorSummary[], data: AnchorData): AnchorPix
   });
 }
 
-// ---------- Occupancy grid from floor plan image ----------
-
 function buildOccupancyGrid(image: HTMLImageElement, anchors: AnchorPixel[]): Uint8Array {
   const off = document.createElement('canvas');
   off.width = GRID_SIZE;
@@ -88,7 +83,6 @@ function buildOccupancyGrid(image: HTMLImageElement, anchors: AnchorPixel[]): Ui
   ctx.drawImage(image, 0, 0, GRID_SIZE, GRID_SIZE);
   const { data } = ctx.getImageData(0, 0, GRID_SIZE, GRID_SIZE);
 
-  // Sample brightness at known-walkable anchor positions to calibrate threshold
   let sumBr = 0;
   let count = 0;
   for (const a of anchors) {
@@ -99,11 +93,9 @@ function buildOccupancyGrid(image: HTMLImageElement, anchors: AnchorPixel[]): Ui
     count++;
   }
   const refBr = count > 0 ? sumBr / count : 200;
-  // If anchors sit on light pixels, light = walkable (typical LiDAR floor plan)
   const lightIsFloor = refBr > 100;
   const THRESH = 80;
 
-  // Build raw walkability mask
   const raw = new Uint8Array(GRID_SIZE * GRID_SIZE);
   for (let i = 0; i < GRID_SIZE * GRID_SIZE; i++) {
     const r = data[i * 4]!;
@@ -112,7 +104,7 @@ function buildOccupancyGrid(image: HTMLImageElement, anchors: AnchorPixel[]): Ui
     const a = data[i * 4 + 3]!;
     const br = (r + g + b) / 3;
     if (a < 10) {
-      raw[i] = 0; // transparent = outside building
+      raw[i] = 0;
     } else if (lightIsFloor) {
       raw[i] = br > THRESH ? 1 : 0;
     } else {
@@ -120,7 +112,6 @@ function buildOccupancyGrid(image: HTMLImageElement, anchors: AnchorPixel[]): Ui
     }
   }
 
-  // Dilate obstacles by 1 cell — larger values close narrow corridors at this resolution
   const grid = new Uint8Array(GRID_SIZE * GRID_SIZE);
   grid.fill(1);
   const D = 1;
@@ -142,7 +133,6 @@ function buildOccupancyGrid(image: HTMLImageElement, anchors: AnchorPixel[]): Ui
   return grid;
 }
 
-// Snap a grid cell to nearest walkable cell (BFS) in case dilation covered it
 function snapToWalkable(grid: Uint8Array, gx: number, gy: number): { gx: number; gy: number } {
   if (grid[gy * GRID_SIZE + gx] !== 0) return { gx, gy };
   const visited = new Set<number>([gy * GRID_SIZE + gx]);
@@ -161,8 +151,6 @@ function snapToWalkable(grid: Uint8Array, gx: number, gy: number): { gx: number;
   }
   return { gx, gy };
 }
-
-// ---------- A* on occupancy grid ----------
 
 function astarGrid(
   grid: Uint8Array,
@@ -252,7 +240,6 @@ function astarGrid(
   return null;
 }
 
-// Line-of-sight check via Bresenham's line algorithm
 function hasLineOfSight(grid: Uint8Array, x0: number, y0: number, x1: number, y1: number): boolean {
   let cx = x0, cy = y0;
   const dx = Math.abs(x1 - cx), dy = Math.abs(y1 - cy);
@@ -268,7 +255,6 @@ function hasLineOfSight(grid: Uint8Array, x0: number, y0: number, x1: number, y1
   }
 }
 
-// String-pulling to straighten A* path while respecting walls
 function simplifyPath(
   path: { gx: number; gy: number }[],
   grid: Uint8Array,
@@ -288,7 +274,6 @@ function simplifyPath(
   return result;
 }
 
-// Compute wall-aware path between two canvas pixel positions
 function computeWallPath(
   image: HTMLImageElement,
   anchors: AnchorPixel[],
@@ -334,8 +319,6 @@ function computeWallPath(
     py: p.gy * invScale,
   }));
 }
-
-// ---------- Anchor-graph Dijkstra (fallback when no image) ----------
 
 function computeThreshold(anchors: AnchorPixel[]): number {
   if (anchors.length < 2) return 20;
@@ -407,8 +390,6 @@ function dijkstraPath(anchors: AnchorPixel[], startId: string, goalId: string): 
   }
   return path;
 }
-
-// ---------- Drawing ----------
 
 function drawMap(
   canvas: HTMLCanvasElement,
@@ -592,7 +573,6 @@ export default function MapPage() {
     }
   }, [navigate]);
 
-  // Compute wall-aware A* path once image + anchors are ready
   useEffect(() => {
     if (!imageLoaded || !imageRef.current || !anchorData || pixelAnchors.length === 0) return;
     const startAnchor = pixelAnchors.find((a) => a.id === anchorData.id);
@@ -605,7 +585,6 @@ export default function MapPage() {
     setPathPoints(pts);
   }, [imageLoaded, pixelAnchors, anchorData]);
 
-  // Fallback: if image hasn't loaded yet, use Dijkstra on anchors
   useEffect(() => {
     if (imageLoaded || !anchorData || pixelAnchors.length === 0) return;
     const exitAnchor = pixelAnchors.find((a) => a.isExit);
@@ -732,7 +711,6 @@ export default function MapPage() {
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
-      {/* Header */}
       <div
         style={{
           display: 'flex',
@@ -762,7 +740,6 @@ export default function MapPage() {
         </div>
       </div>
 
-      {/* Location info */}
       <div
         style={{
           padding: '10px 16px',
@@ -780,7 +757,6 @@ export default function MapPage() {
         )}
       </div>
 
-      {/* Canvas map */}
       <div
         style={{
           flex: 1,
@@ -811,7 +787,6 @@ export default function MapPage() {
         />
       </div>
 
-      {/* Legend */}
       <div
         style={{
           display: 'flex',
@@ -830,7 +805,6 @@ export default function MapPage() {
         }
       </div>
 
-      {/* Draw-mode controls */}
       {drawMode && (
         <div style={{ display: 'flex', gap: 8, padding: '8px 16px 0', flexShrink: 0 }}>
           <button
@@ -870,7 +844,6 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Custom-path active badge */}
       {!drawMode && customPath.length >= 2 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px 0', flexShrink: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: COLOR_CUSTOM, fontWeight: 600 }}>
@@ -886,7 +859,6 @@ export default function MapPage() {
         </div>
       )}
 
-      {/* Action buttons */}
       <div style={{ display: 'flex', gap: 12, padding: '12px 16px 28px', flexShrink: 0 }}>
         {!drawMode && (
           <button
@@ -909,8 +881,7 @@ export default function MapPage() {
         {!drawMode && (
           <button
             onClick={() => {
-              // iOS 13+: request sensor permissions from gesture context before entering AR.
-              void (async () => {
+                  void (async () => {
                 const anyDOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<PermissionState> };
                 if (typeof anyDOE.requestPermission === 'function') {
                   try { await anyDOE.requestPermission(); } catch { /* ignore */ }
@@ -989,12 +960,6 @@ const navBtnStyle: React.CSSProperties = {
   padding: '4px 0',
 };
 
-// ---------- AR Overlay ----------
-
-/**
- * Convert a canvas pixel position back to world coordinates.
- * Inverse of worldToCanvas().
- */
 function canvasToWorld(px: number, py: number, data: AnchorData): { x: number; z: number } {
   return {
     x: data.originX + px * data.scaleMetersPerPixel,
@@ -1002,8 +967,6 @@ function canvasToWorld(px: number, py: number, data: AnchorData): { x: number; z
   };
 }
 
-// Minimal XRSystem shape — avoids lib.dom.webxr dependency
-// but still narrows `navigator` safely.
 interface XrSystem {
   isSessionSupported(type: string): Promise<boolean>;
   requestSession(type: string, opts?: unknown): Promise<XRSession>;
@@ -1028,12 +991,12 @@ async function checkWebXrSupport(): Promise<boolean> {
 }
 
 type ArStatus =
-  | 'detecting'     // checking WebXR support on mount
-  | 'offer-webxr'   // WebXR available — waiting for "Enter AR" user gesture
-  | 'requesting'    // getUserMedia / requestSession in progress
-  | 'active-camera' // camera overlay mode (Safari / fallback)
-  | 'active-webxr'  // WebXR immersive-ar session running
-  | 'failed';       // camera or XR denied / unavailable
+  | 'detecting'
+  | 'offer-webxr'
+  | 'requesting'
+  | 'active-camera'
+  | 'active-webxr'
+  | 'failed';
 
 interface ArOverlayProps {
   anchorData: AnchorData;
@@ -1045,7 +1008,7 @@ interface ArOverlayProps {
 }
 
 function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onReachedExit }: ArOverlayProps) {
-  const overlayRef  = useRef<HTMLDivElement>(null);   // dom-overlay root for WebXR
+  const overlayRef  = useRef<HTMLDivElement>(null);
   const videoRef    = useRef<HTMLVideoElement>(null);
   const streamRef   = useRef<MediaStream | null>(null);
   const xrRef       = useRef<{ session: XRSession; canvas: HTMLCanvasElement } | null>(null);
@@ -1056,7 +1019,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
   const [distanceM, setDistanceM]   = useState<number | null>(null);
   const [waypointIdx, setWaypointIdx] = useState(1);
 
-  // Waypoints in world space (skip index 0 = start)
   const waypoints = React.useMemo(() => {
     if (pathPoints.length <= 1 || anchorData.scaleMetersPerPixel <= 0) {
       const exit = pixelAnchors.find((a) => a.isExit);
@@ -1084,7 +1046,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
 
   useEffect(() => { recomputeArrow(); }, [recomputeArrow]);
 
-  // Detect WebXR support on mount; auto-start camera if not available
   useEffect(() => {
     let alive = true;
     void checkWebXrSupport().then((supported) => {
@@ -1107,7 +1068,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Compass heading
   useEffect(() => {
     let cancelled = false;
     function onOrientation(e: DeviceOrientationEvent) {
@@ -1132,10 +1092,8 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
     };
   }, [recomputeArrow]);
 
-  // Track whether the camera stream was acquired
   const [cameraAvailable, setCameraAvailable] = React.useState(true);
 
-  // ── Camera overlay mode (getUserMedia)
   async function startCameraMode() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -1154,7 +1112,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
     }
   }
 
-  // ── WebXR immersive-ar mode  (must be called from user-gesture handler)
   async function startWebXRMode() {
     const overlay = overlayRef.current;
     if (!overlay) { setArStatus('failed'); return; }
@@ -1194,12 +1151,10 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
       session.addEventListener('end', () => {
         xrRef.current?.canvas.remove();
         xrRef.current = null;
-        // XR ended (e.g. user pressed back on Android): fall back to camera
         setArStatus('requesting');
         void startCameraMode();
       });
 
-      // Keep XR session alive by clearing the framebuffer each frame
       const renderFrame = (_t: DOMHighResTimeStamp, _frame: XRFrame) => {
         const ref = xrRef.current;
         if (!ref) return;
@@ -1239,7 +1194,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
         fontFamily: 'system-ui, sans-serif',
       }}
     >
-      {/* Camera video — only when camera is available and not in WebXR */}
       {!isWebXR && cameraAvailable && (
         <video
           ref={videoRef}
@@ -1253,7 +1207,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
         />
       )}
 
-      {/* WebXR offer screen */}
       {arStatus === 'offer-webxr' && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, background: C.navy }}>
           <div style={{ fontSize: 48 }}>🥽</div>
@@ -1279,7 +1232,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
         </div>
       )}
 
-      {/* Loading / requesting */}
       {arStatus === 'detecting' || arStatus === 'requesting' ? (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
           <div style={{ background: 'rgba(10,41,71,0.88)', backdropFilter: 'blur(12px)', borderRadius: 16, padding: '20px 28px', color: C.cream, fontSize: 14, fontWeight: 600 }}>
@@ -1288,7 +1240,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
         </div>
       ) : null}
 
-      {/* Failed */}
       {arStatus === 'failed' && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 8 }}>
           <div style={{ background: 'rgba(10,41,71,0.92)', backdropFilter: 'blur(12px)', borderRadius: 20, padding: '28px 24px', textAlign: 'center', maxWidth: 280 }}>
@@ -1301,10 +1252,8 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
         </div>
       )}
 
-      {/* ── Main AR navigation UI (shown when active) ── */}
       {isActive && (
         <>
-          {/* Top bar */}
           <div style={{ position: 'absolute', top: 0, left: 0, right: 0, padding: '20px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', zIndex: 10 }}>
             <button onClick={onBack} style={glassBtn}>← Map</button>
             {isWebXR && (
@@ -1317,7 +1266,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
             </div>
           </div>
 
-          {/* No-camera notice */}
           {!isWebXR && !cameraAvailable && (
             <div style={{ position: 'absolute', top: 68, left: 16, right: 16, zIndex: 10 }}>
               <div style={{ background: 'rgba(255,59,48,0.18)', border: '1px solid rgba(255,59,48,0.5)', borderRadius: 10, padding: '7px 14px', fontSize: 12, color: 'rgba(255,200,200,0.9)', textAlign: 'center' }}>
@@ -1326,14 +1274,12 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
             </div>
           )}
 
-          {/* Step counter */}
           {totalSteps > 1 && (
             <div style={{ position: 'absolute', top: cameraAvailable || isWebXR ? 72 : 110, left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', borderRadius: 20, padding: '5px 16px', color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: 600, zIndex: 10, whiteSpace: 'nowrap' }}>
               Titik {clampedIdx + 1} dari {totalSteps}{isLastStep ? ' · EXIT' : ''}
             </div>
           )}
 
-          {/* Navigation arrow + distance */}
           <div style={{ position: 'absolute', top: '30%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
             {arrowAngle !== null ? (
               <div style={{ fontSize: 96, transform: `rotate(${arrowAngle}deg)`, transition: 'transform 0.15s ease', filter: `drop-shadow(0 0 16px ${isLastStep ? '#00E5FF' : 'rgba(57,255,20,0.9)'})`, lineHeight: 1, color: isLastStep ? '#00E5FF' : C.safetyGreen }}>
@@ -1351,7 +1297,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
             )}
           </div>
 
-          {/* Info note */}
           {totalSteps > 1 && (
             <div style={{ position: 'absolute', top: '62%', left: 16, right: 16, zIndex: 5 }}>
               <div style={{ background: 'rgba(10,41,71,0.75)', backdropFilter: 'blur(8px)', borderRadius: 12, padding: '10px 14px', fontSize: 12, color: 'rgba(243,228,201,0.8)', textAlign: 'center' }}>
@@ -1364,7 +1309,6 @@ function ArOverlay({ anchorData, pixelAnchors, pathPoints, elapsed, onBack, onRe
             </div>
           )}
 
-          {/* Bottom actions */}
           <div style={{ position: 'absolute', bottom: 36, left: 16, right: 16, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 10 }}>
             {totalSteps > 1 && !isLastStep && (
               <button

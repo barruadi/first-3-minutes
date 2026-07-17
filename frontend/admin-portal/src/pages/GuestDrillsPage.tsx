@@ -5,10 +5,6 @@ import LoadingState from '../components/LoadingState.js';
 import ErrorState from '../components/ErrorState.js';
 import EmptyState from '../components/EmptyState.js';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
@@ -25,10 +21,6 @@ function formatDateTime(isoString: string): string {
     minute: '2-digit',
   });
 }
-
-// ---------------------------------------------------------------------------
-// Sub-components
-// ---------------------------------------------------------------------------
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
@@ -79,10 +71,6 @@ function StatusBadge({ completed }: { completed: boolean }) {
   );
 }
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
-
 const AUTO_REFRESH_MS = 30_000;
 
 export default function GuestDrillsPage() {
@@ -106,7 +94,6 @@ export default function GuestDrillsPage() {
     try {
       const result = await adminApi.getGuestSessions(controller.signal);
       if (!controller.signal.aborted) {
-        // Sort newest first
         const sorted = [...result].sort(
           (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
@@ -132,12 +119,10 @@ export default function GuestDrillsPage() {
       }
     } catch (e) {
       if (controller.signal.aborted) return;
-      // Stats failure is non-blocking; sessions table still works
       console.error('Gagal memuat statistik tamu:', e);
     }
   }, []);
 
-  // Initial load + auto-refresh
   useEffect(() => {
     void load();
     void loadStats();
@@ -178,7 +163,6 @@ export default function GuestDrillsPage() {
         </button>
       </header>
 
-      {/* Stats summary */}
       <div
         style={{
           display: 'grid',
@@ -217,7 +201,6 @@ export default function GuestDrillsPage() {
         />
       </div>
 
-      {/* Per-anchor stats table */}
       {sortedAnchorStats && sortedAnchorStats.length > 0 && (
         <section style={{ marginBottom: 32 }}>
           <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Statistik per Titik QR</h2>
@@ -276,7 +259,6 @@ export default function GuestDrillsPage() {
         </section>
       )}
 
-      {/* Table section */}
       <section>
         <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Daftar Sesi</h2>
         <div

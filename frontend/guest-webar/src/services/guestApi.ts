@@ -16,14 +16,6 @@ export class GuestApiError extends Error {
   }
 }
 
-/**
- * Token opaque -> GuestRoute. Tanpa auth (PRD §9).
- *
- * Fail closed: token invalid/expired TIDAK PERNAH menghasilkan route.
- * Response divalidasi dengan schema frozen — sebelumnya di-cast `as
- * Promise<GuestRoute>`, sehingga route rusak akan lolos ke scene AR dan
- * mengarahkan tamu ke koordinat sampah saat keadaan darurat.
- */
 export async function resolveGuestToken(
   token: string,
   signal?: AbortSignal
@@ -38,7 +30,6 @@ export async function resolveGuestToken(
     throw new GuestApiError('NETWORK_ERROR', 'Layanan tidak dapat dijangkau.');
   }
 
-  // 404/410 = token tidak dikenal atau dicabut (architecture.md §10.10).
   if (res.status === 404 || res.status === 410) {
     throw new GuestApiError('QR_TOKEN_INVALID', 'Kode QR tidak berlaku.');
   }

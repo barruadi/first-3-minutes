@@ -149,7 +149,6 @@ export default function ScanPage() {
         }}
       />
 
-      {/* Back button */}
       <button
         onClick={() => { stopCamera(); navigate('/'); }}
         style={{

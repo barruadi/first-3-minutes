@@ -5,10 +5,6 @@ import { resolveGuestToken, GuestApiError } from '../services/guestApi.js';
 import { markSceneOperational, MARK_LANDING } from '../services/performance.js';
 import ArScene from '../scenes/ArScene.js';
 
-/**
- * State machine Guest (D4-GUEST-STATE-MACHINE).
- * Invalid token TIDAK PERNAH masuk scene aktif.
- */
 type GuestState =
   | { status: 'resolving_token' }
   | { status: 'invalid_token' }
@@ -19,7 +15,6 @@ type GuestState =
   | { status: 'camera_denied' }
   | { status: 'active'; route: GuestRoute; stream: MediaStream };
 
-/** Kamera hanya tersedia pada secure context (HTTPS atau localhost). */
 function isSupported(): boolean {
   if (typeof navigator === 'undefined') return false;
   if (!window.isSecureContext) return false;
@@ -33,7 +28,6 @@ export default function RescuePage() {
   const abortRef = useRef<AbortController | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Resolve token lebih dulu; jangan meminta kamera untuk token yang invalid.
   useEffect(() => {
     if (!isSupported()) {
       setState({ status: 'unsupported' });
@@ -69,7 +63,6 @@ export default function RescuePage() {
     return () => controller.abort();
   }, [token]);
 
-  // Stream dilepas saat unmount — indikator kamera akan tetap menyala tanpa ini.
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop());
@@ -77,10 +70,6 @@ export default function RescuePage() {
     };
   }, []);
 
-  /**
-   * getUserMedia HARUS dipicu gesture pengguna. iOS Safari menolak permintaan
-   * kamera yang dijalankan langsung dari useEffect saat load.
-   */
   const requestCamera = useCallback(async () => {
     if (state.status !== 'awaiting_gesture') return;
     const { route } = state;

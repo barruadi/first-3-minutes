@@ -91,7 +91,6 @@ export default function CompletePage() {
       padding: '32px 20px',
       fontFamily: 'system-ui, -apple-system, sans-serif',
     }}>
-      {/* Success mark */}
       <div style={{
         width: 88,
         height: 88,
@@ -114,7 +113,6 @@ export default function CompletePage() {
         </p>
       </div>
 
-      {/* Stats card */}
       <div style={{
         background: C.white,
         border: `1px solid ${C.border}`,
@@ -165,7 +163,6 @@ export default function CompletePage() {
         />
       </div>
 
-      {/* Actions */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', maxWidth: 340 }}>
         <button
           onClick={handleScanAnother}
