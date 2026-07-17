@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import type { GuestSession } from '../services/api.js';
+import type { GuestSession, GuestStats } from '../services/api.js';
 import { adminApi } from '../services/api.js';
 import LoadingState from '../components/LoadingState.js';
 import ErrorState from '../components/ErrorState.js';
@@ -24,29 +24,6 @@ function formatDateTime(isoString: string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-// ---------------------------------------------------------------------------
-// Stats derived from sessions
-// ---------------------------------------------------------------------------
-
-interface Stats {
-  total: number;
-  completionRate: number;
-  avgDurationSeconds: number | null;
-}
-
-function deriveStats(sessions: GuestSession[]): Stats {
-  if (sessions.length === 0) {
-    return { total: 0, completionRate: 0, avgDurationSeconds: null };
-  }
-  const completed = sessions.filter((s) => s.completed);
-  const completionRate = (completed.length / sessions.length) * 100;
-  const avgDurationSeconds =
-    completed.length > 0
-      ? completed.reduce((sum, s) => sum + s.duration_seconds, 0) / completed.length
-      : null;
-  return { total: sessions.length, completionRate, avgDurationSeconds };
 }
 
 // ---------------------------------------------------------------------------
@@ -115,6 +92,9 @@ export default function GuestDrillsPage() {
   const abortRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [drillStats, setDrillStats] = useState<GuestStats | null>(null);
+  const statsAbortRef = useRef<AbortController | null>(null);
+
   const load = useCallback(async () => {
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -140,21 +120,43 @@ export default function GuestDrillsPage() {
     }
   }, []);
 
+  const loadStats = useCallback(async () => {
+    statsAbortRef.current?.abort();
+    const controller = new AbortController();
+    statsAbortRef.current = controller;
+
+    try {
+      const result = await adminApi.getGuestStats(controller.signal);
+      if (!controller.signal.aborted) {
+        setDrillStats(result);
+      }
+    } catch (e) {
+      if (controller.signal.aborted) return;
+      // Stats failure is non-blocking; sessions table still works
+      console.error('Gagal memuat statistik tamu:', e);
+    }
+  }, []);
+
   // Initial load + auto-refresh
   useEffect(() => {
     void load();
+    void loadStats();
 
     timerRef.current = setInterval(() => {
       void load();
+      void loadStats();
     }, AUTO_REFRESH_MS);
 
     return () => {
       abortRef.current?.abort();
+      statsAbortRef.current?.abort();
       if (timerRef.current !== null) clearInterval(timerRef.current);
     };
-  }, [load]);
+  }, [load, loadStats]);
 
-  const stats = sessions ? deriveStats(sessions) : null;
+  const sortedAnchorStats = drillStats
+    ? [...drillStats.anchorStats].sort((a, b) => b.scanCount - a.scanCount)
+    : null;
 
   return (
     <div>
@@ -168,7 +170,7 @@ export default function GuestDrillsPage() {
         </div>
         <button
           className="secondary-button"
-          onClick={() => void load()}
+          onClick={() => { void load(); void loadStats(); }}
           disabled={loading}
           style={{ opacity: loading ? 0.6 : 1 }}
         >
@@ -177,29 +179,101 @@ export default function GuestDrillsPage() {
       </header>
 
       {/* Stats summary */}
-      {stats && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            gap: 16,
-            marginBottom: 32,
-          }}
-        >
-          <StatCard label="Total Sesi" value={String(stats.total)} />
-          <StatCard
-            label="Tingkat Penyelesaian"
-            value={stats.total > 0 ? `${stats.completionRate.toFixed(1)}%` : '—'}
-          />
-          <StatCard
-            label="Rata-rata Durasi (Selesai)"
-            value={
-              stats.avgDurationSeconds !== null
-                ? formatDuration(Math.round(stats.avgDurationSeconds))
-                : '—'
-            }
-          />
-        </div>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 16,
+          marginBottom: 32,
+        }}
+      >
+        <StatCard
+          label="Total Sesi"
+          value={drillStats !== null ? String(drillStats.totalSessions) : '—'}
+        />
+        <StatCard
+          label="Tingkat Penyelesaian"
+          value={drillStats !== null ? `${drillStats.completionRate.toFixed(1)}%` : '—'}
+        />
+        <StatCard
+          label="Rata-rata Durasi (Selesai)"
+          value={
+            drillStats !== null && drillStats.avgDurationSeconds !== null
+              ? formatDuration(Math.round(drillStats.avgDurationSeconds))
+              : '—'
+          }
+        />
+        <StatCard
+          label="Gunakan AR"
+          value={
+            drillStats !== null
+              ? `${drillStats.arUsedCount} (${drillStats.arUsageRate.toFixed(1)}%)`
+              : '—'
+          }
+        />
+        <StatCard
+          label="Titik Terlambat"
+          value={drillStats !== null ? (drillStats.bottleneckAnchor ?? '—') : '—'}
+        />
+      </div>
+
+      {/* Per-anchor stats table */}
+      {sortedAnchorStats && sortedAnchorStats.length > 0 && (
+        <section style={{ marginBottom: 32 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, marginBottom: 12 }}>Statistik per Titik QR</h2>
+          <div
+            style={{
+              background: 'var(--color-surface-white)',
+              borderRadius: 8,
+              border: '1px solid var(--color-border)',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{ overflowX: 'auto' }}>
+              <table style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={thStyle}>Lokasi</th>
+                    <th style={thStyle}>Total Scan</th>
+                    <th style={thStyle}>Selesai</th>
+                    <th style={thStyle}>Tingkat Penyelesaian</th>
+                    <th style={thStyle}>Pakai AR</th>
+                    <th style={thStyle}>Rata-rata Durasi</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedAnchorStats.map((anchor, idx) => (
+                    <tr
+                      key={anchor.anchorId}
+                      style={{
+                        background: idx % 2 === 0 ? 'transparent' : 'rgba(243,228,201,.18)',
+                      }}
+                    >
+                      <td style={tdStyle}>{anchor.anchorName}</td>
+                      <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums' }}>
+                        {anchor.scanCount}
+                      </td>
+                      <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums' }}>
+                        {anchor.completionCount}
+                      </td>
+                      <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums' }}>
+                        {anchor.completionRate.toFixed(1)}%
+                      </td>
+                      <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums' }}>
+                        {anchor.arUsedCount} ({anchor.arUsageRate.toFixed(1)}%)
+                      </td>
+                      <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums' }}>
+                        {anchor.avgDurationSeconds !== null
+                          ? formatDuration(Math.round(anchor.avgDurationSeconds))
+                          : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* Table section */}
@@ -230,6 +304,7 @@ export default function GuestDrillsPage() {
                     <th style={thStyle}>Tanggal / Waktu</th>
                     <th style={thStyle}>Lokasi Awal</th>
                     <th style={thStyle}>Durasi</th>
+                    <th style={thStyle}>AR</th>
                     <th style={thStyle}>Status</th>
                   </tr>
                 </thead>
@@ -245,6 +320,11 @@ export default function GuestDrillsPage() {
                       <td style={tdStyle}>{session.anchor_name}</td>
                       <td style={{ ...tdStyle, fontVariantNumeric: 'tabular-nums' }}>
                         {formatDuration(session.duration_seconds)}
+                      </td>
+                      <td style={tdStyle}>
+                        <span style={{ fontSize: 13, color: session.used_ar ? 'var(--color-success)' : 'var(--color-text-secondary)' }}>
+                          {session.used_ar ? 'Ya' : 'Tidak'}
+                        </span>
                       </td>
                       <td style={tdStyle}>
                         <StatusBadge completed={session.completed} />

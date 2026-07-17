@@ -8,6 +8,8 @@ import QRCode from 'react-native-qrcode-svg';
 import { buildingApi } from '../../services/apiClient';
 import type { AnchorResult } from '../../services/apiClient';
 import { scanStore } from '../../store/scanStore';
+import ScanSelectorScreen from './ScanSelectorScreen';
+import { displayPointToWorld, worldToDisplayPoint } from './floorPlanCoordinates';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const MAP_SIZE = SCREEN_W - 32;
@@ -30,6 +32,7 @@ export default function QRManagerScreen() {
   const [qrModal, setQRModal] = useState<QRModalState>({ visible: false });
   const [newName, setNewName] = useState('');
   const [saving, setSaving] = useState(false);
+  const [showSelector, setShowSelector] = useState(false);
   const nameInputRef = useRef<TextInput>(null);
 
   const scan = scanStore.get();
@@ -52,10 +55,12 @@ export default function QRManagerScreen() {
   const handleMapTap = useCallback((evt: { nativeEvent: { locationX: number; locationY: number } }) => {
     if (!scan) return;
     const { locationX, locationY } = evt.nativeEvent;
-    const meta = scan.floorPlanMeta;
-    const pos_x = meta.originX + (locationX / MAP_SIZE) * (MAP_SIZE * meta.scaleMetersPerPixel);
-    const pos_z = meta.originZ + (1 - locationY / MAP_SIZE) * (MAP_SIZE * meta.scaleMetersPerPixel);
-    setAddModal({ visible: true, tapX: pos_x, tapZ: pos_z });
+    const world = displayPointToWorld(
+      { x: locationX, y: locationY },
+      MAP_SIZE,
+      scan.floorPlanMeta,
+    );
+    setAddModal({ visible: true, tapX: world.posX, tapZ: world.posZ });
     setNewName('');
     setTimeout(() => nameInputRef.current?.focus(), 150);
   }, [scan]);
@@ -76,13 +81,13 @@ export default function QRManagerScreen() {
 
   const handleToggleExit = useCallback(async (anchor: AnchorResult) => {
     if (!scan) return;
-    const updated: AnchorResult = { ...anchor, isExit: !anchor.isExit };
-    setAnchors(prev => prev.map(a => a.id === anchor.id ? updated : a));
+    // Optimistic update
+    setAnchors(prev => prev.map(a => a.id === anchor.id ? { ...a, isExit: !a.isExit } : a));
     try {
-      await buildingApi.deleteAnchor(scan.scanId, anchor.id);
-      const recreated = await buildingApi.createAnchor(scan.scanId, anchor.name, anchor.posX, anchor.posZ, updated.isExit);
-      setAnchors(prev => prev.map(a => a.id === anchor.id ? recreated : a));
+      const result = await buildingApi.updateAnchor(scan.scanId, anchor.id, !anchor.isExit);
+      setAnchors(prev => prev.map(a => a.id === anchor.id ? result : a));
     } catch {
+      // Revert on failure
       setAnchors(prev => prev.map(a => a.id === anchor.id ? anchor : a));
     }
   }, [scan]);
@@ -104,10 +109,7 @@ export default function QRManagerScreen() {
   function anchorToPixel(anchor: AnchorResult): { x: number; y: number } {
     const meta = scan?.floorPlanMeta;
     if (!meta) return { x: 0, y: 0 };
-    const pxPerMeter = MAP_SIZE / (MAP_SIZE * meta.scaleMetersPerPixel);
-    const x = (anchor.posX - meta.originX) * pxPerMeter;
-    const y = (1 - (anchor.posZ - meta.originZ) / (MAP_SIZE * meta.scaleMetersPerPixel)) * MAP_SIZE;
-    return { x: Math.max(0, Math.min(MAP_SIZE, x)), y: Math.max(0, Math.min(MAP_SIZE, y)) };
+    return worldToDisplayPoint(anchor, MAP_SIZE, meta);
   }
 
   if (!scan) {
@@ -121,7 +123,13 @@ export default function QRManagerScreen() {
           <Text style={styles.emptyBody}>
             Pindai ruangan terlebih dahulu dari tab "Scan", lalu kembali ke sini untuk menambahkan titik QR.
           </Text>
+          <TouchableOpacity style={styles.loadBtn} onPress={() => setShowSelector(true)}>
+            <Text style={styles.loadBtnText}>Muat Pemindaian Tersimpan</Text>
+          </TouchableOpacity>
         </View>
+        <Modal visible={showSelector} animationType="slide">
+          <ScanSelectorScreen onClose={() => { setShowSelector(false); void fetchAnchors(); }} />
+        </Modal>
       </SafeAreaView>
     );
   }
@@ -129,6 +137,9 @@ export default function QRManagerScreen() {
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll}>
+        <TouchableOpacity onPress={() => setShowSelector(true)}>
+          <Text style={styles.switchBtn}>Ganti pemindaian</Text>
+        </TouchableOpacity>
         {/* Floor plan */}
         <Text style={styles.sectionLabel}>Ketuk denah untuk menambah titik QR</Text>
         <View style={styles.mapWrapper}>
@@ -241,6 +252,11 @@ export default function QRManagerScreen() {
           </View>
         </Modal>
       )}
+
+      {/* Scan selector modal */}
+      <Modal visible={showSelector} animationType="slide">
+        <ScanSelectorScreen onClose={() => { setShowSelector(false); void fetchAnchors(); }} />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -394,5 +410,8 @@ const styles = StyleSheet.create({
   emptyIconText: { color: NAVY, fontSize: 18, fontWeight: '700', letterSpacing: 1 },
   emptyTitle: { color: NAVY, fontSize: 22, fontWeight: '700', textAlign: 'center' },
   emptyBody: { color: TEXT_SEC, fontSize: 15, textAlign: 'center', lineHeight: 22 },
-});
 
+  loadBtn: { backgroundColor: '#0A2947', borderRadius: 12, padding: 14, alignItems: 'center', marginTop: 8 },
+  loadBtnText: { color: '#FFFFFF', fontWeight: '700', fontSize: 15 },
+  switchBtn: { color: '#475665', fontSize: 13, textDecorationLine: 'underline', textAlign: 'right', paddingVertical: 4 },
+});

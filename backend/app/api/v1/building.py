@@ -1,8 +1,9 @@
 import uuid
+from collections import defaultdict
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
-from sqlalchemy import select
+from sqlalchemy import delete as sa_delete, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -15,9 +16,12 @@ from app.schemas.building import (
     AnchorCreate,
     AnchorDetailResponse,
     AnchorResponse,
+    AnchorStatsItem,
+    AnchorUpdate,
     BuildingScanResponse,
     GuestSessionCreate,
     GuestSessionResponse,
+    GuestStatsResponse,
 )
 from app.services.storage import storage_path
 
@@ -53,6 +57,7 @@ def _session_response(session: GuestDrillSession, anchor_name: str) -> GuestSess
         anchor_name=anchor_name,
         duration_seconds=session.duration_seconds,
         completed=session.completed,
+        used_ar=session.used_ar,
         created_at=session.created_at,
     )
 
@@ -80,6 +85,9 @@ async def create_building_scan(
     floor_plan: UploadFile = File(...),
     mesh: UploadFile | None = File(default=None),
     installation_id: str | None = Form(default=None),
+    scale_meters_per_pixel: float = Form(default=0.01),
+    origin_x: float = Form(default=0.0),
+    origin_z: float = Form(default=0.0),
     db: Session = Depends(get_db),
 ) -> BuildingScanResponse:
     """Upload a floor plan (PNG) and optional mesh (OBJ) to create a building scan."""
@@ -110,6 +118,9 @@ async def create_building_scan(
         floor_plan_path=str(fp_path),
         mesh_path=mesh_path_str,
         created_at=utc_now(),
+        scale_meters_per_pixel=scale_meters_per_pixel,
+        origin_x=origin_x,
+        origin_z=origin_z,
     )
     db.add(scan)
     db.commit()
@@ -120,6 +131,9 @@ async def create_building_scan(
         floor_plan_url=_floor_plan_url(scan.id),
         mesh_url=mesh_url,
         created_at=scan.created_at,
+        scale_meters_per_pixel=scan.scale_meters_per_pixel,
+        origin_x=scan.origin_x,
+        origin_z=scan.origin_z,
     )
 
 
@@ -178,9 +192,34 @@ def delete_anchor(
     )
     if anchor is None:
         raise ApiException(404, "ANCHOR_NOT_FOUND", "Anchor tidak ditemukan dalam scan ini.")
+    # Remove drill sessions that reference this anchor before deleting the anchor itself.
+    db.execute(sa_delete(GuestDrillSession).where(GuestDrillSession.anchor_id == anchor_id))
     db.delete(anchor)
     db.commit()
     return Response(status_code=204)
+
+
+@router.patch("/buildings/{scan_id}/anchors/{anchor_id}", response_model=AnchorResponse)
+def update_anchor(
+    scan_id: str,
+    anchor_id: str,
+    body: AnchorUpdate,
+    db: Session = Depends(get_db),
+) -> AnchorResponse:
+    """Update anchor properties (e.g. toggle is_exit) without changing its ID."""
+    _get_scan_or_404(db, scan_id)
+    anchor = db.scalar(
+        select(BuildingAnchor).where(
+            BuildingAnchor.id == anchor_id,
+            BuildingAnchor.scan_id == scan_id,
+        )
+    )
+    if anchor is None:
+        raise ApiException(404, "ANCHOR_NOT_FOUND", "Anchor tidak ditemukan dalam scan ini.")
+    anchor.is_exit = body.is_exit
+    db.commit()
+    db.refresh(anchor)
+    return _anchor_response(anchor)
 
 
 @router.get("/anchors/{anchor_id}", response_model=AnchorDetailResponse)
@@ -210,6 +249,9 @@ def get_anchor_detail(
         created_at=anchor.created_at,
         floor_plan_url=floor_plan_url,
         anchors=[_anchor_response(a) for a in all_anchors],
+        scale_meters_per_pixel=scan.scale_meters_per_pixel,
+        origin_x=scan.origin_x,
+        origin_z=scan.origin_z,
     )
 
 
@@ -226,6 +268,7 @@ def create_guest_drill_session(
         anchor_id=body.anchor_id,
         duration_seconds=body.duration_seconds,
         completed=body.completed,
+        used_ar=body.used_ar,
         created_at=utc_now(),
     )
     db.add(session)
@@ -264,3 +307,101 @@ def list_guest_sessions(
         for s in sessions
     ]
     return AdminSessionsResponse(sessions=items)
+
+
+@router.get("/buildings/scans", response_model=list[BuildingScanResponse])
+def list_building_scans(db: Session = Depends(get_db)) -> list[BuildingScanResponse]:
+    """List all building scans, newest first."""
+    scans = db.scalars(
+        select(BuildingScan).order_by(BuildingScan.created_at.desc())
+    ).all()
+    return [
+        BuildingScanResponse(
+            id=scan.id,
+            floor_plan_url=_floor_plan_url(scan.id) if scan.floor_plan_path else None,
+            mesh_url=f"{settings.api_base_url}/uploads/meshes/{scan.id}.obj" if scan.mesh_path else None,
+            created_at=scan.created_at,
+            scale_meters_per_pixel=scan.scale_meters_per_pixel,
+            origin_x=scan.origin_x,
+            origin_z=scan.origin_z,
+        )
+        for scan in scans
+    ]
+
+
+@router.get("/admin/guest-stats", response_model=GuestStatsResponse)
+def get_guest_stats(db: Session = Depends(get_db)) -> GuestStatsResponse:
+    """Aggregate guest drill session statistics grouped by anchor."""
+    sessions = db.scalars(select(GuestDrillSession)).all()
+
+    if not sessions:
+        return GuestStatsResponse(
+            total_sessions=0,
+            completion_rate=0.0,
+            avg_duration_seconds=None,
+            bottleneck_anchor=None,
+            anchor_stats=[],
+        )
+
+    # Load all referenced anchors
+    anchor_ids = {s.anchor_id for s in sessions}
+    anchors_by_id: dict[str, BuildingAnchor] = {}
+    if anchor_ids:
+        rows = db.scalars(
+            select(BuildingAnchor).where(BuildingAnchor.id.in_(anchor_ids))
+        ).all()
+        anchors_by_id = {a.id: a for a in rows}
+
+    # Group sessions by anchor_id
+    grouped: dict[str, list[GuestDrillSession]] = defaultdict(list)
+    for s in sessions:
+        grouped[s.anchor_id].append(s)
+
+    anchor_stats: list[AnchorStatsItem] = []
+    for anchor_id, anchor_sessions in grouped.items():
+        anchor = anchors_by_id.get(anchor_id)
+        anchor_name = anchor.name if anchor else "unknown"
+        scan_id = anchor.scan_id if anchor else "unknown"
+        scan_count = len(anchor_sessions)
+        completion_count = sum(1 for s in anchor_sessions if s.completed)
+        completion_rate = completion_count / scan_count if scan_count else 0.0
+        avg_duration = sum(s.duration_seconds for s in anchor_sessions) / scan_count if scan_count else None
+        ar_used_count = sum(1 for s in anchor_sessions if s.used_ar)
+        ar_usage_rate = ar_used_count / scan_count * 100 if scan_count else 0.0
+        anchor_stats.append(
+            AnchorStatsItem(
+                anchor_id=anchor_id,
+                anchor_name=anchor_name,
+                scan_id=scan_id,
+                scan_count=scan_count,
+                completion_count=completion_count,
+                completion_rate=completion_rate,
+                avg_duration_seconds=avg_duration,
+                ar_used_count=ar_used_count,
+                ar_usage_rate=ar_usage_rate,
+            )
+        )
+
+    total_sessions = len(sessions)
+    total_completed = sum(1 for s in sessions if s.completed)
+    overall_completion_rate = total_completed / total_sessions if total_sessions else 0.0
+    overall_avg_duration = sum(s.duration_seconds for s in sessions) / total_sessions if total_sessions else None
+    ar_used_count = sum(1 for s in sessions if s.used_ar)
+    ar_usage_rate = ar_used_count / total_sessions * 100 if total_sessions else 0.0
+
+    # Bottleneck anchor: highest avg duration among anchors with data
+    bottleneck_anchor: str | None = None
+    stats_with_duration = [a for a in anchor_stats if a.avg_duration_seconds is not None]
+    if stats_with_duration:
+        bottleneck = max(stats_with_duration, key=lambda a: a.avg_duration_seconds or 0.0)
+        bottleneck_anchor = bottleneck.anchor_name
+
+    return GuestStatsResponse(
+        total_sessions=total_sessions,
+        completion_rate=overall_completion_rate,
+        avg_duration_seconds=overall_avg_duration,
+        bottleneck_anchor=bottleneck_anchor,
+        anchor_stats=anchor_stats,
+        ar_used_count=ar_used_count,
+        ar_usage_rate=ar_usage_rate,
+    )

@@ -5,7 +5,13 @@ Run: python -m app.fixtures.seed
 import sys
 from datetime import datetime
 import hashlib
+import io
+import json
 from pathlib import Path
+import shutil
+
+import qrcode
+import qrcode.image.svg
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3]))
 
@@ -15,9 +21,11 @@ from app.core.database import Base, engine
 from app.models import (
     Organization, Building, FloorPlan, Location,
     DeviceProfile, SpatialScan, SpatialMap,
-    Drill, DrillMetrics, RewardIssuance, QrToken,
+    Drill, DrillMetrics, RewardIssuance, QrToken, BuildingScan,
 )
 from app.core.config import settings
+from app.services.storage import storage_path
+from app.services.floor_plan_renderer import render_obj_floor_plan
 
 DEMO = {
     "org_id": "org-demo-001",
@@ -30,10 +38,64 @@ DEMO = {
     "drill_id": "drill-demo-001",
     "qr_token_id": "qr-token-demo-001",
     "qr_raw_token": "demo-token-loc-demo-001",
+    "evacuation_room_id": "evacuation-room-demo-001",
+    "evacuation_location_id": "loc-evacuation-room-demo-001",
+    "evacuation_scan_id": "scan-evacuation-room-demo-001",
+    "evacuation_map_id": "spatial-map-evacuation-room-demo-001",
+    "evacuation_qr_id": "qr-evacuation-room-demo-001",
+    "evacuation_qr_raw_token": "demo-evacuation-room-001",
 }
+
+FIXTURE_ASSETS = Path(__file__).resolve().parent / "assets"
+
+
+def _seed_evacuation_assets() -> tuple[Path, Path, str, float, float, float]:
+    """Copy the demo mesh and create a stable, immediately scannable QR."""
+    mesh_path = storage_path("meshes", f"{DEMO['evacuation_room_id']}.obj")
+    shutil.copyfile(FIXTURE_ASSETS / "evacuation-room.obj", mesh_path)
+    floor_plan_path = storage_path("floor_plans", f"{DEMO['evacuation_room_id']}.png")
+    floor_metadata = render_obj_floor_plan(mesh_path, floor_plan_path)
+
+    guest_url = (
+        f"{settings.guest_base_url.rstrip('/')}/rescue/"
+        f"{DEMO['evacuation_qr_raw_token']}"
+    )
+    svg_buffer = io.BytesIO()
+    qrcode.make(
+        guest_url,
+        image_factory=qrcode.image.svg.SvgPathImage,
+        border=4,
+    ).save(svg_buffer)
+    storage_path("qr", f"{DEMO['evacuation_qr_id']}.svg").write_bytes(svg_buffer.getvalue())
+
+    png_buffer = io.BytesIO()
+    qrcode.make(
+        guest_url,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        border=4,
+        box_size=16,
+    ).save(png_buffer, format="PNG")
+    storage_path("qr", f"{DEMO['evacuation_qr_id']}.png").write_bytes(png_buffer.getvalue())
+    return (
+        mesh_path,
+        floor_plan_path,
+        guest_url,
+        floor_metadata.scale_meters_per_pixel,
+        floor_metadata.origin_x,
+        floor_metadata.origin_z,
+    )
 
 
 def seed(db: Session) -> None:
+    (
+        demo_mesh_path,
+        demo_floor_plan_path,
+        demo_guest_url,
+        demo_scale,
+        demo_origin_x,
+        demo_origin_z,
+    ) = _seed_evacuation_assets()
+
     # Organization
     if not db.get(Organization, DEMO["org_id"]):
         db.add(Organization(id=DEMO["org_id"], name="Demo Organization"))
@@ -50,7 +112,6 @@ def seed(db: Session) -> None:
     db.flush()
 
     # Location
-    import json
     if not db.get(Location, DEMO["location_id"]):
         db.add(Location(
             id=DEMO["location_id"],
@@ -152,8 +213,96 @@ def seed(db: Session) -> None:
             location_id=DEMO["location_id"],
         ))
 
+    # Standalone AR evacuation example. The route starts near the room's desk,
+    # bends around the cabinet hazard, and ends at the doorway in the +Z wall.
+    evacuation_room = db.get(BuildingScan, DEMO["evacuation_room_id"])
+    if evacuation_room is None:
+        evacuation_room = BuildingScan(
+            id=DEMO["evacuation_room_id"],
+            installation_id=DEMO["resident_id"],
+            created_at=datetime(2026, 7, 17),
+        )
+        db.add(evacuation_room)
+    # Refresh generated paths and projection metadata on every idempotent run.
+    evacuation_room.floor_plan_path = str(demo_floor_plan_path)
+    evacuation_room.mesh_path = str(demo_mesh_path)
+    evacuation_room.scale_meters_per_pixel = demo_scale
+    evacuation_room.origin_x = demo_origin_x
+    evacuation_room.origin_z = demo_origin_z
+
+    if not db.get(Location, DEMO["evacuation_location_id"]):
+        db.add(Location(
+            id=DEMO["evacuation_location_id"],
+            building_id=DEMO["building_id"],
+            floor_plan_id=None,
+            location_ref="demo-evacuation-room",
+            label="Ruang Demo Evakuasi AR",
+            origin_json=json.dumps({"x": -1.8, "y": 0.0, "z": -0.8}),
+            route_points_json=json.dumps([
+                {"x": -0.8, "y": 0.0, "z": -0.8},
+                {"x": 0.2, "y": 0.0, "z": -0.2},
+                {"x": 0.8, "y": 0.0, "z": 0.8},
+                {"x": 0.8, "y": 0.0, "z": 1.6},
+            ]),
+            exit_point_json=json.dumps({"x": 0.8, "y": 0.0, "z": 2.1}),
+        ))
+    db.flush()
+
+    if not db.get(SpatialScan, DEMO["evacuation_scan_id"]):
+        db.add(SpatialScan(
+            id=DEMO["evacuation_scan_id"],
+            scan_id=DEMO["evacuation_scan_id"],
+            installation_id=DEMO["resident_id"],
+            building_id=DEMO["building_id"],
+            location_id=DEMO["evacuation_location_id"],
+            status="completed",
+            frame_count=15,
+            payload_bytes=0,
+            completed_at=datetime(2026, 7, 17),
+        ))
+    db.flush()
+
+    if not db.get(SpatialMap, DEMO["evacuation_map_id"]):
+        db.add(SpatialMap(
+            id=DEMO["evacuation_map_id"],
+            scan_id=DEMO["evacuation_scan_id"],
+            origin_json=json.dumps({"x": -1.8, "y": 0.0, "z": -0.8}),
+            safe_zones_json=json.dumps([{
+                "id": "safe-demo-desk",
+                "type": "SAFE_ZONE",
+                "label": "sturdy_desk",
+                "position": {"x": -1.8, "y": 0.0, "z": -0.8},
+                "confidence": 1.0,
+            }]),
+            hazard_zones_json=json.dumps([{
+                "id": "hazard-demo-cabinet",
+                "type": "HAZARD_ZONE",
+                "label": "tall_cabinet",
+                "position": {"x": 0.0, "y": 0.0, "z": -1.2},
+                "confidence": 1.0,
+            }]),
+            exit_points_json=json.dumps([{
+                "id": "exit-demo-door",
+                "type": "EXIT_POINT",
+                "label": "emergency_exit",
+                "position": {"x": 0.8, "y": 0.0, "z": 2.1},
+                "confidence": 1.0,
+            }]),
+            source="fallback",
+        ))
+
+    evacuation_qr_hash = hashlib.sha256(
+        f"{settings.qr_token_secret}:{DEMO['evacuation_qr_raw_token']}".encode("utf-8")
+    ).hexdigest()
+    if not db.query(QrToken).filter_by(token_hash=evacuation_qr_hash).first():
+        db.add(QrToken(
+            id=DEMO["evacuation_qr_id"],
+            token_hash=evacuation_qr_hash,
+            location_id=DEMO["evacuation_location_id"],
+        ))
+
     db.commit()
-    print("Seed completed successfully.")
+    print(f"Seed completed successfully. Demo evacuation QR: {demo_guest_url}")
 
 
 if __name__ == "__main__":

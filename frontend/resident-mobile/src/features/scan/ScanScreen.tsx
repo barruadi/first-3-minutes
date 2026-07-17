@@ -36,14 +36,18 @@ export default function ScanScreen() {
       setPhase('stopping');
       const [floorPlan, meshUri] = await Promise.all([stopAndGenerateFloorPlan(), exportMeshOBJ()]);
       setPhase('uploading');
-      const result = await buildingApi.uploadScan(floorPlan.uri, meshUri);
+      const result = await buildingApi.uploadScan(floorPlan.uri, meshUri, {
+        scaleMetersPerPixel: floorPlan.scaleMetersPerPixel,
+        originX: floorPlan.originX,
+        originZ: floorPlan.originZ,
+      });
       scanStore.set({
         scanId: result.id,
         floorPlanUrl: result.floorPlanUrl,
         floorPlanMeta: {
-          scaleMetersPerPixel: floorPlan.scaleMetersPerPixel,
-          originX: floorPlan.originX,
-          originZ: floorPlan.originZ,
+          scaleMetersPerPixel: result.scaleMetersPerPixel,
+          originX: result.originX,
+          originZ: result.originZ,
         },
       });
       setPhase('done');

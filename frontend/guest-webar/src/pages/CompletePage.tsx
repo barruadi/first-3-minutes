@@ -17,6 +17,7 @@ interface DrillResult {
   anchorId: string;
   durationSeconds: number;
   completed: boolean;
+  usedAr: boolean;
 }
 
 function formatTime(secs: number): string {
@@ -47,6 +48,7 @@ export default function CompletePage() {
         anchor_id: data.anchorId,
         duration_seconds: data.durationSeconds,
         completed: data.completed,
+        used_ar: data.usedAr ?? false,
       }).then(() => setSubmitted(true));
     } catch {
       navigate('/', { replace: true });
@@ -142,6 +144,14 @@ export default function CompletePage() {
           value={
             <span style={{ fontSize: 18, fontWeight: 700, color: verdict.color }}>
               {verdict.label}
+            </span>
+          }
+        />
+        <StatRow
+          label="AR Guidance"
+          value={
+            <span style={{ fontSize: 14, color: result.usedAr ? C.earth : C.textSec }}>
+              {result.usedAr ? 'Used' : 'Not used'}
             </span>
           }
         />
