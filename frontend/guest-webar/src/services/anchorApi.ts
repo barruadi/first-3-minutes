@@ -5,6 +5,9 @@
  */
 
 const BASE_URL = import.meta.env['VITE_GUEST_API_BASE_URL'] ?? 'http://localhost:8000';
+const NGROK_HEADERS = BASE_URL.includes('.ngrok-free.')
+  ? { 'ngrok-skip-browser-warning': '1' }
+  : {};
 
 export interface AnchorSummary {
   id: string;
@@ -63,6 +66,7 @@ export async function fetchAnchor(
   try {
     res = await fetch(`${BASE_URL}/api/anchors/${encodeURIComponent(anchorId)}`, {
       signal: signal ?? null,
+      headers: NGROK_HEADERS,
     });
   } catch {
     throw new AnchorApiError('NETWORK_ERROR', 'Cannot reach server. Check your connection.');
@@ -107,7 +111,10 @@ export async function submitDrillSession(
   try {
     const res = await fetch(`${BASE_URL}/api/guest/drill-session`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        ...NGROK_HEADERS,
+      },
       body: JSON.stringify(payload),
     });
     if (!res.ok) return null;

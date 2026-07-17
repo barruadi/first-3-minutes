@@ -1,6 +1,9 @@
 import { GuestRouteSchema, ApiErrorSchema, type GuestRoute } from '@3minutes/contracts';
 
 const BASE_URL = import.meta.env['VITE_GUEST_API_BASE_URL'] ?? 'http://localhost:8000';
+const NGROK_HEADERS = BASE_URL.includes('.ngrok-free.')
+  ? { 'ngrok-skip-browser-warning': '1' }
+  : {};
 
 export type GuestErrorCode = 'QR_TOKEN_INVALID' | 'NETWORK_ERROR' | 'VALIDATION_ERROR';
 
@@ -27,7 +30,10 @@ export async function resolveGuestToken(
 ): Promise<GuestRoute> {
   let res: Response;
   try {
-    res = await fetch(`${BASE_URL}/api/guest/rescue/${encodeURIComponent(token)}`, { signal: signal ?? null });
+    res = await fetch(`${BASE_URL}/api/guest/rescue/${encodeURIComponent(token)}`, {
+      signal: signal ?? null,
+      headers: NGROK_HEADERS,
+    });
   } catch {
     throw new GuestApiError('NETWORK_ERROR', 'Layanan tidak dapat dijangkau.');
   }
