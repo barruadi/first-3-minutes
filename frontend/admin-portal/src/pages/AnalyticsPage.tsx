@@ -42,6 +42,7 @@ function deriveMetrics(sessions: GuestSession[]): Metrics {
 
   let completedCount = 0;
   for (const s of sessions) {
+    if (!s.created_at) continue;
     const d = new Date(s.created_at);
     const h = d.getHours();
     byHour[h] = (byHour[h] ?? 0) + 1;
