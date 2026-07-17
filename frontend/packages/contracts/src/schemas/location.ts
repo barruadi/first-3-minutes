@@ -6,7 +6,7 @@ export const BuildingSchema = z.object({
   name: z.string(),
   status: z.string(),
   organizationId: z.string(),
-  createdAt: z.string().datetime(),
+  createdAt: z.string().datetime({ local: true, offset: true }),
 });
 export type Building = z.infer<typeof BuildingSchema>;
 
@@ -19,7 +19,8 @@ export const LocationSchema = z.object({
   origin: Coordinate3DSchema,
   routePoints: z.array(Coordinate3DSchema),
   exitPoint: Coordinate3DSchema,
-  createdAt: z.string().datetime(),
+  // Accept both timezone-aware ("...Z") and naive ("...") ISO 8601 strings from backend
+  createdAt: z.string().datetime({ local: true, offset: true }),
 });
 export type Location = z.infer<typeof LocationSchema>;
 
@@ -52,7 +53,7 @@ export const FloorPlanSchema = z.object({
   name: z.string(),
   fileUrl: z.string().nullable(),
   metadata: z.record(z.unknown()).default({}),
-  createdAt: z.string().datetime(),
+  createdAt: z.string().datetime({ local: true, offset: true }),
 });
 export type FloorPlan = z.infer<typeof FloorPlanSchema>;
 

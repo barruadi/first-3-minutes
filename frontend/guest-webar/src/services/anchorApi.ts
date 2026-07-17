@@ -21,12 +21,19 @@ export interface AnchorData {
   isExit: boolean;
   floorPlanUrl: string;
   anchors: AnchorSummary[];
+  /** Meters per floor-plan pixel. 0 means metadata not present — use fallback. */
+  scaleMetersPerPixel: number;
+  /** World X coordinate at floor-plan pixel column 0. */
+  originX: number;
+  /** World Z coordinate at floor-plan pixel row (height - 1). */
+  originZ: number;
 }
 
 export interface DrillSessionPayload {
   anchor_id: string;
   duration_seconds: number;
   completed: boolean;
+  used_ar?: boolean;
 }
 
 export interface DrillSessionResponse {
@@ -77,7 +84,15 @@ export async function fetchAnchor(
     throw new AnchorApiError('INVALID_RESPONSE', 'Unexpected response format from server.');
   }
 
-  return json as AnchorData;
+  const raw = json as Record<string, unknown>;
+  const data: AnchorData = {
+    ...(raw as unknown as AnchorData),
+    scaleMetersPerPixel:
+      typeof raw['scaleMetersPerPixel'] === 'number' ? raw['scaleMetersPerPixel'] : 0,
+    originX: typeof raw['originX'] === 'number' ? raw['originX'] : 0,
+    originZ: typeof raw['originZ'] === 'number' ? raw['originZ'] : 0,
+  };
+  return data;
 }
 
 /**

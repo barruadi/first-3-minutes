@@ -109,7 +109,13 @@ export default function RescuePage() {
     case 'invalid_token':
       return (
         <Screen>
-          <Icon>⚠️</Icon>
+          <Icon>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-label="Warning">
+              <path d="M24 4L44 42H4L24 4Z" fill="#F59E0B" />
+              <rect x="22" y="18" width="4" height="14" rx="2" fill="#1a1a1a" />
+              <rect x="22" y="35" width="4" height="4" rx="2" fill="#1a1a1a" />
+            </svg>
+          </Icon>
           <Text>Kode QR tidak berlaku.</Text>
           <Sub>Pindai ulang kode QR di lokasi, atau hubungi petugas gedung.</Sub>
         </Screen>
@@ -118,7 +124,14 @@ export default function RescuePage() {
     case 'api_error':
       return (
         <Screen>
-          <Icon>📡</Icon>
+          <Icon>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-label="Network error">
+              <circle cx="24" cy="24" r="20" stroke="#60A5FA" strokeWidth="3" fill="none" />
+              <path d="M16 32 Q24 16 32 32" stroke="#60A5FA" strokeWidth="2.5" fill="none" />
+              <path d="M12 24 Q24 8 36 24" stroke="#60A5FA" strokeWidth="2.5" fill="none" />
+              <circle cx="24" cy="36" r="2.5" fill="#60A5FA" />
+            </svg>
+          </Icon>
           <Text>{state.message}</Text>
           <Sub>Periksa koneksi Anda lalu muat ulang halaman.</Sub>
         </Screen>
@@ -127,7 +140,14 @@ export default function RescuePage() {
     case 'unsupported':
       return (
         <Screen>
-          <Icon>🌐</Icon>
+          <Icon>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-label="Not supported">
+              <rect x="6" y="10" width="36" height="26" rx="3" stroke="#60A5FA" strokeWidth="3" fill="none" />
+              <line x1="16" y1="38" x2="32" y2="38" stroke="#60A5FA" strokeWidth="3" strokeLinecap="round" />
+              <line x1="24" y1="36" x2="24" y2="42" stroke="#60A5FA" strokeWidth="3" strokeLinecap="round" />
+              <line x1="10" y1="14" x2="38" y2="34" stroke="#F87171" strokeWidth="2.5" strokeLinecap="round" />
+            </svg>
+          </Icon>
           <Text>Browser tidak didukung.</Text>
           <Sub>
             Panduan kamera membutuhkan koneksi aman (HTTPS). Gunakan Safari (iOS) atau Chrome
@@ -139,7 +159,13 @@ export default function RescuePage() {
     case 'camera_denied':
       return (
         <Screen>
-          <Icon>🚫</Icon>
+          <Icon>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-label="Camera denied">
+              <circle cx="24" cy="24" r="20" stroke="#F87171" strokeWidth="3" fill="none" />
+              <line x1="14" y1="14" x2="34" y2="34" stroke="#F87171" strokeWidth="3" strokeLinecap="round" />
+              <line x1="34" y1="14" x2="14" y2="34" stroke="#F87171" strokeWidth="3" strokeLinecap="round" />
+            </svg>
+          </Icon>
           <Text>Akses kamera ditolak.</Text>
           <Sub>Izinkan kamera pada pengaturan browser, lalu muat ulang halaman.</Sub>
         </Screen>
@@ -150,7 +176,15 @@ export default function RescuePage() {
       const busy = state.status === 'requesting_camera';
       return (
         <Screen>
-          <Icon>📷</Icon>
+          <Icon>
+            <svg width="48" height="48" viewBox="0 0 48 48" fill="none" aria-label="Camera">
+              <rect x="4" y="14" width="32" height="24" rx="4" stroke="#F3E4C9" strokeWidth="3" fill="none" />
+              <circle cx="20" cy="26" r="7" stroke="#F3E4C9" strokeWidth="2.5" fill="none" />
+              <circle cx="20" cy="26" r="3" fill="#F3E4C9" />
+              <path d="M36 20 L44 16 L44 36 L36 32" stroke="#F3E4C9" strokeWidth="2.5" strokeLinejoin="round" fill="none" />
+              <rect x="10" y="10" width="8" height="5" rx="2" fill="#F3E4C9" />
+            </svg>
+          </Icon>
           <Text>Panduan evakuasi siap</Text>
           <Sub>Arahkan kamera ke sekeliling Anda untuk melihat rute menuju pintu keluar.</Sub>
 
@@ -236,7 +270,7 @@ function Spinner() {
 }
 
 function Icon({ children }: { children: React.ReactNode }) {
-  return <div className="text-5xl">{children}</div>;
+  return <div className="flex items-center justify-center">{children}</div>;
 }
 
 function Text({ children }: { children: React.ReactNode }) {
