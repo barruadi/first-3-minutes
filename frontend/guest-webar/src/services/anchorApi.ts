@@ -4,6 +4,8 @@
  *          POST /api/guest/drill-session
  */
 
+const BASE_URL = import.meta.env['VITE_GUEST_API_BASE_URL'] ?? 'http://localhost:8000';
+
 export interface AnchorSummary {
   id: string;
   name: string;
@@ -59,7 +61,7 @@ export async function fetchAnchor(
 ): Promise<AnchorData> {
   let res: Response;
   try {
-    res = await fetch(`/api/anchors/${encodeURIComponent(anchorId)}`, {
+    res = await fetch(`${BASE_URL}/api/anchors/${encodeURIComponent(anchorId)}`, {
       signal: signal ?? null,
     });
   } catch {
@@ -103,7 +105,7 @@ export async function submitDrillSession(
   payload: DrillSessionPayload
 ): Promise<DrillSessionResponse | null> {
   try {
-    const res = await fetch('/api/guest/drill-session', {
+    const res = await fetch(`${BASE_URL}/api/guest/drill-session`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
