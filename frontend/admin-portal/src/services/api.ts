@@ -25,6 +25,7 @@ export interface GuestSession {
   anchor_name: string;
   duration_seconds: number;
   completed: boolean;
+  used_ar: boolean;
   created_at: string;
 }
 
@@ -42,6 +43,57 @@ const GuestSessionsSchema: Validator<GuestSessionsResponse> = {
       Array.isArray((data as { sessions: unknown }).sessions)
     ) {
       return { success: true, data: data as GuestSessionsResponse };
+    }
+    return { success: false };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Guest stats types — not yet in @3minutes/contracts
+// ---------------------------------------------------------------------------
+
+export interface AnchorStatsItem {
+  anchorId: string;
+  anchorName: string;
+  scanId: string;
+  scanCount: number;
+  completionCount: number;
+  completionRate: number;
+  avgDurationSeconds: number | null;
+  arUsedCount: number;
+  arUsageRate: number;
+}
+
+export interface GuestStats {
+  totalSessions: number;
+  completionRate: number;
+  avgDurationSeconds: number | null;
+  bottleneckAnchor: string | null;
+  arUsedCount: number;
+  arUsageRate: number;
+  anchorStats: AnchorStatsItem[];
+}
+
+/** Minimal inline validator for the guest-stats response. */
+const GuestStatsSchema: Validator<GuestStats> = {
+  safeParse(data: unknown) {
+    if (
+      data !== null &&
+      typeof data === 'object' &&
+      'totalSessions' in data &&
+      'completionRate' in data &&
+      'anchorStats' in data &&
+      Array.isArray((data as { anchorStats: unknown }).anchorStats)
+    ) {
+      // Back-fill AR fields that may be missing from older sessions
+      const d = data as GuestStats;
+      d.arUsedCount = d.arUsedCount ?? 0;
+      d.arUsageRate = d.arUsageRate ?? 0;
+      for (const a of d.anchorStats) {
+        a.arUsedCount = a.arUsedCount ?? 0;
+        a.arUsageRate = a.arUsageRate ?? 0;
+      }
+      return { success: true, data: d };
     }
     return { success: false };
   },
@@ -192,5 +244,9 @@ export const adminApi = {
       { signal }
     );
     return res.sessions;
+  },
+
+  getGuestStats: async (signal?: AbortSignal): Promise<GuestStats> => {
+    return request<GuestStats>('/api/admin/guest-stats', GuestStatsSchema, { signal });
   },
 };

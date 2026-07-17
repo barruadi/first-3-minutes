@@ -39,6 +39,9 @@ export interface BuildingScanResult {
   id: string;
   floorPlanUrl: string;
   meshUrl: string;
+  scaleMetersPerPixel: number;
+  originX: number;
+  originZ: number;
   createdAt: string;
 }
 
@@ -65,10 +68,18 @@ function parseAnchor(d: Record<string, unknown>): AnchorResult {
 // ── Building API ──────────────────────────────────────────────────────────────
 
 export const buildingApi = {
-  uploadScan: (floorPlanUri: string, meshUri: string, signal?: AbortSignal): Promise<BuildingScanResult> => {
+  uploadScan: (
+    floorPlanUri: string,
+    meshUri: string,
+    meta: { scaleMetersPerPixel: number; originX: number; originZ: number },
+    signal?: AbortSignal,
+  ): Promise<BuildingScanResult> => {
     const form = new FormData();
     form.append('floor_plan', { uri: floorPlanUri, name: 'floor_plan.png', type: 'image/png' } as never);
     form.append('mesh', { uri: meshUri, name: 'mesh.obj', type: 'model/obj' } as never);
+    form.append('scale_meters_per_pixel', String(meta.scaleMetersPerPixel));
+    form.append('origin_x', String(meta.originX));
+    form.append('origin_z', String(meta.originZ));
     return request('/buildings/scan', (data) => {
       const d = data as Record<string, unknown>;
       const id = d['id'] as string;
@@ -82,10 +93,33 @@ export const buildingApi = {
         id,
         floorPlanUrl,
         meshUrl: (d['mesh_url'] ?? d['meshUrl']) as string,
+        scaleMetersPerPixel: (d['scaleMetersPerPixel'] ?? d['scale_meters_per_pixel'] ?? 0.01) as number,
+        originX: (d['originX'] ?? d['origin_x'] ?? 0) as number,
+        originZ: (d['originZ'] ?? d['origin_z'] ?? 0) as number,
         createdAt: (d['created_at'] ?? d['createdAt']) as string,
       };
     }, { method: 'POST', body: form, signal });
   },
+
+  listScans: (signal?: AbortSignal): Promise<BuildingScanResult[]> =>
+    request('/buildings/scans', (data) => {
+      return (data as Array<Record<string, unknown>>).map(d => {
+        const id = d['id'] as string;
+        const rawFloorPlan = ((d['floor_plan_url'] ?? d['floorPlanUrl']) as string | undefined) ?? '';
+        const floorPlanUrl = rawFloorPlan
+          ? rawFloorPlan.replace(/^https?:\/\/[^/]+/, BASE_URL)
+          : `${BASE_URL}/uploads/floor_plans/${id}.png`;
+        return {
+          id,
+          floorPlanUrl,
+          meshUrl: (d['mesh_url'] ?? d['meshUrl']) as string,
+          scaleMetersPerPixel: (d['scaleMetersPerPixel'] ?? d['scale_meters_per_pixel'] ?? 0.01) as number,
+          originX: (d['originX'] ?? d['origin_x'] ?? 0) as number,
+          originZ: (d['originZ'] ?? d['origin_z'] ?? 0) as number,
+          createdAt: (d['created_at'] ?? d['createdAt']) as string,
+        };
+      });
+    }, { signal }),
 
   createAnchor: (scanId: string, name: string, posX: number, posZ: number, isExit: boolean, signal?: AbortSignal): Promise<AnchorResult> =>
     request(`/buildings/${encodeURIComponent(scanId)}/anchors`,
@@ -96,6 +130,11 @@ export const buildingApi = {
     request(`/buildings/${encodeURIComponent(scanId)}/anchors`,
       (data) => (data as Array<Record<string, unknown>>).map(parseAnchor),
       { signal }),
+
+  updateAnchor: (scanId: string, anchorId: string, isExit: boolean, signal?: AbortSignal): Promise<AnchorResult> =>
+    request(`/buildings/${encodeURIComponent(scanId)}/anchors/${encodeURIComponent(anchorId)}`,
+      (data) => parseAnchor(data as Record<string, unknown>),
+      { method: 'PATCH', body: JSON.stringify({ is_exit: isExit }), signal }),
 
   deleteAnchor: (scanId: string, anchorId: string, signal?: AbortSignal): Promise<void> =>
     request(`/buildings/${encodeURIComponent(scanId)}/anchors/${encodeURIComponent(anchorId)}`,

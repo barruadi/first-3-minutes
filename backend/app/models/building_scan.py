@@ -13,6 +13,9 @@ class BuildingScan(Base):
     floor_plan_path: Mapped[str | None] = mapped_column(String, nullable=True)
     mesh_path: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
+    scale_meters_per_pixel: Mapped[float] = mapped_column(Float, default=0.01)
+    origin_x: Mapped[float] = mapped_column(Float, default=0.0)
+    origin_z: Mapped[float] = mapped_column(Float, default=0.0)
 
     anchors: Mapped[list["BuildingAnchor"]] = relationship(
         "BuildingAnchor", back_populates="scan", cascade="all, delete-orphan"
@@ -40,4 +43,5 @@ class GuestDrillSession(Base):
     anchor_id: Mapped[str] = mapped_column(ForeignKey("building_anchors.id"), nullable=False, index=True)
     duration_seconds: Mapped[float] = mapped_column(Float, nullable=False)
     completed: Mapped[bool] = mapped_column(Boolean, default=True)
+    used_ar: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utc_now)
