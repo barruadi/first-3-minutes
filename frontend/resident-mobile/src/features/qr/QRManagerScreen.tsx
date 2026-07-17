@@ -12,6 +12,14 @@ import { scanStore } from '../../store/scanStore';
 const { width: SCREEN_W } = Dimensions.get('window');
 const MAP_SIZE = SCREEN_W - 32;
 
+const NAVY = '#0A2947';
+const CREAM = '#F3E4C9';
+const EARTH = '#8B5E3C';
+const TEXT_SEC = '#475665';
+const BORDER = 'rgba(10, 41, 71, 0.22)';
+const WHITE = '#FFFFFF';
+const RED = '#D93025';
+
 type AddModalState = { visible: false } | { visible: true; tapX: number; tapZ: number };
 type QRModalState = { visible: false } | { visible: true; anchor: AnchorResult };
 
@@ -33,7 +41,7 @@ export default function QRManagerScreen() {
       const list = await buildingApi.getAnchors(scan.scanId);
       setAnchors(list);
     } catch {
-      /* ignore — will show empty state */
+      /* ignore */
     } finally {
       setLoading(false);
     }
@@ -41,12 +49,10 @@ export default function QRManagerScreen() {
 
   useEffect(() => { void fetchAnchors(); }, [fetchAnchors]);
 
-  // Convert normalized tap position (0-1) to world pos_x / pos_z
   const handleMapTap = useCallback((evt: { nativeEvent: { locationX: number; locationY: number } }) => {
     if (!scan) return;
     const { locationX, locationY } = evt.nativeEvent;
     const meta = scan.floorPlanMeta;
-    // Convert pixel → meters using floor plan metadata
     const pos_x = meta.originX + (locationX / MAP_SIZE) * (MAP_SIZE * meta.scaleMetersPerPixel);
     const pos_z = meta.originZ + (1 - locationY / MAP_SIZE) * (MAP_SIZE * meta.scaleMetersPerPixel);
     setAddModal({ visible: true, tapX: pos_x, tapZ: pos_z });
@@ -58,13 +64,7 @@ export default function QRManagerScreen() {
     if (!scan || !addModal.visible || !newName.trim()) return;
     setSaving(true);
     try {
-      const anchor = await buildingApi.createAnchor(
-        scan.scanId,
-        newName.trim(),
-        addModal.tapX,
-        addModal.tapZ,
-        false,
-      );
+      const anchor = await buildingApi.createAnchor(scan.scanId, newName.trim(), addModal.tapX, addModal.tapZ, false);
       setAnchors(prev => [...prev, anchor]);
       setAddModal({ visible: false });
     } catch (e) {
@@ -77,16 +77,12 @@ export default function QRManagerScreen() {
   const handleToggleExit = useCallback(async (anchor: AnchorResult) => {
     if (!scan) return;
     const updated: AnchorResult = { ...anchor, isExit: !anchor.isExit };
-    // Optimistic update
     setAnchors(prev => prev.map(a => a.id === anchor.id ? updated : a));
     try {
       await buildingApi.deleteAnchor(scan.scanId, anchor.id);
-      const recreated = await buildingApi.createAnchor(
-        scan.scanId, anchor.name, anchor.posX, anchor.posZ, updated.isExit,
-      );
+      const recreated = await buildingApi.createAnchor(scan.scanId, anchor.name, anchor.posX, anchor.posZ, updated.isExit);
       setAnchors(prev => prev.map(a => a.id === anchor.id ? recreated : a));
     } catch {
-      // Revert on failure
       setAnchors(prev => prev.map(a => a.id === anchor.id ? anchor : a));
     }
   }, [scan]);
@@ -96,19 +92,15 @@ export default function QRManagerScreen() {
     Alert.alert('Hapus Titik', `Hapus "${anchor.name}"?`, [
       { text: 'Batal', style: 'cancel' },
       {
-        text: 'Hapus',
-        style: 'destructive',
+        text: 'Hapus', style: 'destructive',
         onPress: async () => {
           setAnchors(prev => prev.filter(a => a.id !== anchor.id));
-          await buildingApi.deleteAnchor(scan.scanId, anchor.id).catch(() => {
-            void fetchAnchors(); // Re-sync on failure
-          });
+          await buildingApi.deleteAnchor(scan.scanId, anchor.id).catch(() => { void fetchAnchors(); });
         },
       },
     ]);
   }, [scan, fetchAnchors]);
 
-  // Convert pos_x / pos_z back to pixel position on the displayed map
   function anchorToPixel(anchor: AnchorResult): { x: number; y: number } {
     const meta = scan?.floorPlanMeta;
     if (!meta) return { x: 0, y: 0 };
@@ -122,7 +114,9 @@ export default function QRManagerScreen() {
     return (
       <SafeAreaView style={styles.root}>
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>📍</Text>
+          <View style={styles.emptyIcon}>
+            <Text style={styles.emptyIconText}>QR</Text>
+          </View>
           <Text style={styles.emptyTitle}>Belum ada pemindaian</Text>
           <Text style={styles.emptyBody}>
             Pindai ruangan terlebih dahulu dari tab "Scan", lalu kembali ke sini untuk menambahkan titik QR.
@@ -135,16 +129,11 @@ export default function QRManagerScreen() {
   return (
     <SafeAreaView style={styles.root}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Floor plan with tap-to-place */}
-        <Text style={styles.sectionTitle}>Ketuk denah untuk menambah titik QR</Text>
+        {/* Floor plan */}
+        <Text style={styles.sectionLabel}>Ketuk denah untuk menambah titik QR</Text>
         <View style={styles.mapWrapper}>
           <TouchableOpacity activeOpacity={0.9} onPress={handleMapTap}>
-            <Image
-              source={{ uri: scan.floorPlanUrl }}
-              style={styles.mapImage}
-              resizeMode="contain"
-            />
-            {/* Anchor dots overlaid on floor plan */}
+            <Image source={{ uri: scan.floorPlanUrl }} style={styles.mapImage} resizeMode="contain" />
             {anchors.map(anchor => {
               const { x, y } = anchorToPixel(anchor);
               return (
@@ -153,7 +142,7 @@ export default function QRManagerScreen() {
                   style={[styles.dot, { left: x - 10, top: y - 10 }, anchor.isExit && styles.dotExit]}
                   onPress={() => setQRModal({ visible: true, anchor })}
                 >
-                  <Text style={styles.dotLabel}>{anchor.isExit ? '🚪' : '📍'}</Text>
+                  <Text style={styles.dotLabel}>{anchor.isExit ? 'K' : '+'}</Text>
                 </TouchableOpacity>
               );
             })}
@@ -164,7 +153,7 @@ export default function QRManagerScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Titik QR ({anchors.length})</Text>
-            {loading && <ActivityIndicator size="small" color="#39FF14" />}
+            {loading && <ActivityIndicator size="small" color={NAVY} />}
           </View>
 
           {anchors.length === 0 && !loading && (
@@ -173,12 +162,11 @@ export default function QRManagerScreen() {
 
           {anchors.map(anchor => (
             <View key={anchor.id} style={styles.anchorRow}>
-              <TouchableOpacity
-                style={styles.anchorInfo}
-                onPress={() => setQRModal({ visible: true, anchor })}
-              >
-                <Text style={styles.anchorName}>{anchor.isExit ? '🚪 ' : '📍 '}{anchor.name}</Text>
-                <Text style={styles.anchorId}>{anchor.id.slice(0, 8)}…</Text>
+              <TouchableOpacity style={styles.anchorInfo} onPress={() => setQRModal({ visible: true, anchor })}>
+                <Text style={styles.anchorName}>
+                  {anchor.isExit ? '[Keluar] ' : ''}{anchor.name}
+                </Text>
+                <Text style={styles.anchorId}>{anchor.id.slice(0, 8)}...</Text>
               </TouchableOpacity>
               <View style={styles.anchorActions}>
                 <TouchableOpacity
@@ -186,11 +174,11 @@ export default function QRManagerScreen() {
                   onPress={() => void handleToggleExit(anchor)}
                 >
                   <Text style={[styles.exitBtnText, anchor.isExit && styles.exitBtnTextActive]}>
-                    {anchor.isExit ? 'Pintu Keluar ✓' : 'Jadikan Keluar'}
+                    {anchor.isExit ? 'Pintu Keluar' : 'Set Keluar'}
                   </Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => handleDeleteAnchor(anchor)}>
-                  <Text style={styles.deleteBtn}>✕</Text>
+                  <Text style={styles.deleteBtn}>X</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -207,17 +195,14 @@ export default function QRManagerScreen() {
               ref={nameInputRef}
               style={styles.input}
               placeholder="cth: Pintu Utama, Tangga B3"
-              placeholderTextColor="rgba(255,255,255,0.35)"
+              placeholderTextColor="rgba(10, 41, 71, 0.35)"
               value={newName}
               onChangeText={setNewName}
               onSubmitEditing={() => void handleAddAnchor()}
               returnKeyType="done"
             />
             <View style={styles.modalRow}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setAddModal({ visible: false })}
-              >
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setAddModal({ visible: false })}>
                 <Text style={styles.cancelBtnText}>Batal</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -226,7 +211,7 @@ export default function QRManagerScreen() {
                 disabled={!newName.trim() || saving}
               >
                 {saving
-                  ? <ActivityIndicator size="small" color="#000" />
+                  ? <ActivityIndicator size="small" color={WHITE} />
                   : <Text style={styles.addBtnText}>Tambah</Text>}
               </TouchableOpacity>
             </View>
@@ -234,7 +219,7 @@ export default function QRManagerScreen() {
         </View>
       </Modal>
 
-      {/* QR code display modal */}
+      {/* QR display modal */}
       {qrModal.visible && (
         <Modal visible transparent animationType="fade">
           <View style={styles.modalBg}>
@@ -246,18 +231,10 @@ export default function QRManagerScreen() {
                 </View>
               )}
               <View style={styles.qrBox}>
-                <QRCode
-                  value={`anchor:${qrModal.anchor.id}`}
-                  size={220}
-                  backgroundColor="#fff"
-                  color="#000"
-                />
+                <QRCode value={`anchor:${qrModal.anchor.id}`} size={220} backgroundColor={WHITE} color={NAVY} />
               </View>
               <Text style={styles.qrHint}>Tempel QR ini di lokasi fisik agar tamu dapat memindainya.</Text>
-              <TouchableOpacity
-                style={styles.closeBtn}
-                onPress={() => setQRModal({ visible: false })}
-              >
+              <TouchableOpacity style={styles.closeBtn} onPress={() => setQRModal({ visible: false })}>
                 <Text style={styles.closeBtnText}>Tutup</Text>
               </TouchableOpacity>
             </View>
@@ -269,15 +246,19 @@ export default function QRManagerScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0A1A0E' },
+  root: { flex: 1, backgroundColor: CREAM },
   scroll: { padding: 16, gap: 16 },
+
+  // Floor plan map
   mapWrapper: {
     width: MAP_SIZE,
     height: MAP_SIZE,
     alignSelf: 'center',
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#1A2A1A',
+    backgroundColor: WHITE,
+    borderWidth: 1,
+    borderColor: BORDER,
     position: 'relative',
   },
   mapImage: { width: MAP_SIZE, height: MAP_SIZE },
@@ -286,118 +267,132 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: 'rgba(57,255,20,0.3)',
+    backgroundColor: 'rgba(10, 41, 71, 0.25)',
     borderWidth: 2,
-    borderColor: '#39FF14',
+    borderColor: NAVY,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  dotExit: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.3)' },
-  dotLabel: { fontSize: 10 },
+  dotExit: {
+    borderColor: EARTH,
+    backgroundColor: 'rgba(139, 94, 60, 0.25)',
+  },
+  dotLabel: { fontSize: 9, fontWeight: '700', color: NAVY },
+
+  // Section labels
+  sectionLabel: { color: TEXT_SEC, fontSize: 13, fontWeight: '600' },
   section: { gap: 10 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sectionTitle: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  emptyList: { color: 'rgba(255,255,255,0.45)', fontSize: 14, textAlign: 'center', paddingVertical: 16 },
+  sectionTitle: { color: NAVY, fontSize: 15, fontWeight: '700' },
+  emptyList: { color: TEXT_SEC, fontSize: 14, textAlign: 'center', paddingVertical: 16 },
+
+  // Anchor rows
   anchorRow: {
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderRadius: 10,
+    backgroundColor: WHITE,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
     padding: 12,
     gap: 8,
   },
   anchorInfo: { flex: 1 },
-  anchorName: { color: '#fff', fontSize: 15, fontWeight: '600' },
-  anchorId: { color: 'rgba(255,255,255,0.35)', fontSize: 11, fontFamily: 'monospace' },
+  anchorName: { color: NAVY, fontSize: 15, fontWeight: '600' },
+  anchorId: { color: TEXT_SEC, fontSize: 11, fontFamily: 'monospace' },
   anchorActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   exitBtn: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 6,
+    borderColor: BORDER,
+    borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
-  exitBtnActive: { borderColor: '#00E5FF', backgroundColor: 'rgba(0,229,255,0.15)' },
-  exitBtnText: { color: 'rgba(255,255,255,0.6)', fontSize: 12 },
-  exitBtnTextActive: { color: '#00E5FF', fontWeight: '700' },
-  deleteBtn: { color: '#FF4444', fontSize: 18, paddingHorizontal: 6 },
+  exitBtnActive: { borderColor: EARTH, backgroundColor: 'rgba(139, 94, 60, 0.12)' },
+  exitBtnText: { color: TEXT_SEC, fontSize: 12 },
+  exitBtnTextActive: { color: EARTH, fontWeight: '700' },
+  deleteBtn: { color: RED, fontSize: 16, fontWeight: '700', paddingHorizontal: 6 },
 
-  // Add modal
-  modalBg: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
+  // Modals
+  modalBg: { flex: 1, backgroundColor: 'rgba(10, 41, 71, 0.55)', justifyContent: 'flex-end' },
   modalCard: {
-    backgroundColor: '#1A2A1A',
+    backgroundColor: WHITE,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 24,
     gap: 16,
   },
-  modalTitle: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  modalTitle: { color: NAVY, fontSize: 18, fontWeight: '700' },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: 10,
+    backgroundColor: CREAM,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
     padding: 14,
-    color: '#fff',
+    color: NAVY,
     fontSize: 16,
   },
   modalRow: { flexDirection: 'row', gap: 12 },
   cancelBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 10,
+    borderColor: BORDER,
+    borderRadius: 12,
     padding: 14,
     alignItems: 'center',
   },
-  cancelBtnText: { color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  cancelBtnText: { color: TEXT_SEC, fontWeight: '600' },
   addBtn: {
     flex: 2,
-    backgroundColor: '#39FF14',
-    borderRadius: 10,
+    backgroundColor: NAVY,
+    borderRadius: 12,
     padding: 14,
     alignItems: 'center',
   },
-  addBtnDisabled: { backgroundColor: 'rgba(57,255,20,0.3)' },
-  addBtnText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  addBtnDisabled: { backgroundColor: 'rgba(10, 41, 71, 0.3)' },
+  addBtnText: { color: WHITE, fontWeight: '700', fontSize: 16 },
 
   // QR modal
   qrCard: {
-    backgroundColor: '#1A2A1A',
+    backgroundColor: WHITE,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 28,
     alignItems: 'center',
     gap: 14,
   },
-  qrTitle: { color: '#fff', fontSize: 20, fontWeight: '700', textAlign: 'center' },
+  qrTitle: { color: NAVY, fontSize: 20, fontWeight: '700', textAlign: 'center' },
   exitBadge: {
-    backgroundColor: 'rgba(0,229,255,0.15)',
-    borderWidth: 1,
-    borderColor: '#00E5FF',
+    backgroundColor: EARTH,
     borderRadius: 6,
     paddingHorizontal: 12,
     paddingVertical: 4,
   },
-  exitBadgeText: { color: '#00E5FF', fontSize: 12, fontWeight: '700', letterSpacing: 1 },
+  exitBadgeText: { color: WHITE, fontSize: 12, fontWeight: '700', letterSpacing: 1 },
   qrBox: {
-    backgroundColor: '#fff',
+    backgroundColor: WHITE,
     padding: 16,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: BORDER,
     marginVertical: 4,
   },
-  qrHint: { color: 'rgba(255,255,255,0.55)', fontSize: 13, textAlign: 'center' },
-  closeBtn: {
-    backgroundColor: '#39FF14',
-    borderRadius: 10,
-    paddingHorizontal: 40,
-    paddingVertical: 13,
-  },
-  closeBtnText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  qrHint: { color: TEXT_SEC, fontSize: 13, textAlign: 'center' },
+  closeBtn: { backgroundColor: NAVY, borderRadius: 12, paddingHorizontal: 40, paddingVertical: 13 },
+  closeBtnText: { color: WHITE, fontWeight: '700', fontSize: 16 },
 
   // Empty state
   empty: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32, gap: 16 },
-  emptyIcon: { fontSize: 64 },
-  emptyTitle: { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  emptyBody: { color: 'rgba(255,255,255,0.6)', fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  emptyIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: BORDER,
+    backgroundColor: WHITE,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyIconText: { color: NAVY, fontSize: 18, fontWeight: '700', letterSpacing: 1 },
+  emptyTitle: { color: NAVY, fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  emptyBody: { color: TEXT_SEC, fontSize: 15, textAlign: 'center', lineHeight: 22 },
 });
+
