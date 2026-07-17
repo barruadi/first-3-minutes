@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { AnchorData, AnchorSummary } from '../services/anchorApi.js';
+import DrillArScene from '../scenes/DrillArScene.js';
 
 // Canvas constants
 const CANVAS_SIZE = 512;
@@ -701,9 +702,9 @@ export default function MapPage() {
   if (screen === 'ar') {
     const activePath = customPath.length >= 2 ? customPath : pathPoints;
     return (
-      <ArOverlay
+      <DrillArScene
         anchorData={anchorData}
-        pixelAnchors={pixelAnchors}
+        anchors={anchorData.anchors}
         pathPoints={activePath}
         elapsed={elapsed}
         onBack={() => setScreen('map')}
@@ -907,7 +908,21 @@ export default function MapPage() {
         )}
         {!drawMode && (
           <button
-            onClick={() => { setUsedAr(true); setScreen('ar'); }}
+            onClick={() => {
+              // iOS 13+: request sensor permissions from gesture context before entering AR.
+              void (async () => {
+                const anyDOE = DeviceOrientationEvent as unknown as { requestPermission?: () => Promise<PermissionState> };
+                if (typeof anyDOE.requestPermission === 'function') {
+                  try { await anyDOE.requestPermission(); } catch { /* ignore */ }
+                }
+                const anyDME = DeviceMotionEvent as unknown as { requestPermission?: () => Promise<PermissionState> };
+                if (typeof anyDME.requestPermission === 'function') {
+                  try { await anyDME.requestPermission(); } catch { /* ignore */ }
+                }
+                setUsedAr(true);
+                setScreen('ar');
+              })();
+            }}
             style={{
               flex: 1,
               background: 'transparent',
