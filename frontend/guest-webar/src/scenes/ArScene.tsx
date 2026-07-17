@@ -1,6 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-// Named import, bukan `import * as THREE` — namespace import mematikan
-// tree-shaking dan menarik seluruh Three.js ke bundle (budget 1,5 MB gzip).
 import {
   Scene,
   PerspectiveCamera,
@@ -10,15 +8,17 @@ import {
   Euler,
   Group,
   Mesh,
-  ConeGeometry,
-  CylinderGeometry,
+  Shape,
+  ShapeGeometry,
   MeshBasicMaterial,
   MathUtils,
+  DoubleSide,
 } from 'three';
 import type { AccessibilityMode, GuestRoute, GuidanceEvent, Coordinate3D } from '@3minutes/contracts';
-import { computeGuidance, guidanceToSpeech } from '../services/guidance.js';
+import { computeGuidance, guidanceToSpeech, activeWaypointIndex } from '../services/guidance.js';
 import { GuidanceSpeaker } from '../services/speech.js';
 import { FpsSampler } from '../services/performance.js';
+import { useStepTracking } from '../hooks/useStepTracking.js';
 
 interface Props {
   route: GuestRoute;
@@ -29,24 +29,27 @@ interface Props {
   onSceneReady: () => void;
 }
 
-const ARROW_COLOR = 0x39ff14; // neon green — hanya untuk directional arrow (design.md §1).
+const ARROW_COLOR  = 0x39ff14; // neon green (design.md §1)
 const EYE_HEIGHT_M = 1.6;
 
 const MODE_LABELS: Record<AccessibilityMode, string> = {
-  VISUAL_ONLY: 'Visual',
+  VISUAL_ONLY:      'Visual',
   VISUAL_AND_AUDIO: 'Visual + suara',
-  AUDIO_PRIMARY: 'Suara',
+  AUDIO_PRIMARY:    'Suara',
 };
 
 export default function ArScene({ route, stream, mode, onModeChange, onSceneReady }: Props) {
-  const mountRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const speakerRef = useRef<GuidanceSpeaker | null>(null);
-  const headingRef = useRef(0);
-  const [guidance, setGuidance] = useState<GuidanceEvent | null>(null);
+  const mountRef    = useRef<HTMLDivElement>(null);
+  const videoRef    = useRef<HTMLVideoElement>(null);
+  const speakerRef  = useRef<GuidanceSpeaker | null>(null);
+  const headingRef  = useRef(0);
+  const [guidance, setGuidance]                     = useState<GuidanceEvent | null>(null);
   const [orientationBlocked, setOrientationBlocked] = useState(false);
 
-  // Speaker mengikuti mode tanpa membangun ulang scene.
+  // Dead-reckoned position from QR origin, updated each detected step.
+  const positionRef = useStepTracking(headingRef);
+
+  // Speaker follows mode without rebuilding scene.
   useEffect(() => {
     if (!speakerRef.current) speakerRef.current = new GuidanceSpeaker(mode);
     else speakerRef.current.setMode(mode);
@@ -59,12 +62,11 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
     };
   }, []);
 
-  // Heading perangkat. iOS memerlukan izin eksplisit untuk DeviceOrientation.
+  // Device heading — iOS requires explicit DeviceOrientation permission.
   useEffect(() => {
     let cancelled = false;
 
     function onOrientation(e: DeviceOrientationEvent) {
-      // webkitCompassHeading tersedia di Safari iOS dan sudah true-north.
       const webkitHeading = (e as unknown as { webkitCompassHeading?: number }).webkitCompassHeading;
       if (typeof webkitHeading === 'number') headingRef.current = webkitHeading;
       else if (typeof e.alpha === 'number') headingRef.current = 360 - e.alpha;
@@ -96,88 +98,104 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
     };
   }, []);
 
-  // Video feed memakai stream yang sudah ada.
+  // Attach stream to video element.
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     video.srcObject = stream;
     void video.play().catch(() => {});
-    return () => {
-      video.srcObject = null;
-    };
+    return () => { video.srcObject = null; };
   }, [stream]);
 
-  // Scene dibangun sekali per route.
+  // Build scene once per route.
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
 
-    const width = mount.clientWidth;
+    const width  = mount.clientWidth;
     const height = mount.clientHeight;
 
     const renderer = new WebGLRenderer({ alpha: true, antialias: true });
     renderer.setSize(width, height);
-    // Cap pixel ratio: perangkat 3x menguras fill rate tanpa manfaat terlihat.
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     Object.assign(renderer.domElement.style, { position: 'absolute', top: '0', left: '0' });
     mount.appendChild(renderer.domElement);
 
-    const scene = new Scene();
+    const scene  = new Scene();
     const camera = new PerspectiveCamera(75, width / height, 0.1, 100);
-    // Marker QR = origin lokal (0,0,0); tamu berdiri di origin setinggi mata.
     camera.position.set(0, EYE_HEIGHT_M, 0);
 
-    // Geometry dan material dibuat sekali lalu dipakai ulang semua instance.
-    const shaftGeo = new CylinderGeometry(0.04, 0.04, 0.3, 6);
-    const headGeo = new ConeGeometry(0.1, 0.22, 8);
-    const material = new MeshBasicMaterial({ color: ARROW_COLOR, transparent: true, opacity: 0.9 });
+    // Flat chevron: defined in XY plane with tip at +Y.
+    // mesh.rotation.x = π/2 maps +Y → +Z so the tip faces forward in group-local space.
+    // The group quaternion then aligns group +Z with the segment direction.
+    const shape = new Shape();
+    shape.moveTo( 0,     0.28);
+    shape.lineTo( 0.22, -0.18);
+    shape.lineTo( 0.08, -0.06);
+    shape.lineTo( 0,     0.06);
+    shape.lineTo(-0.08, -0.06);
+    shape.lineTo(-0.22, -0.18);
+    shape.closePath();
 
-    // Arrow ditempatkan sepanjang tiap segmen rute, bukan satu arrow statis.
-    const arrows = new Group();
-    const waypoints: Coordinate3D[] = [...route.routePoints, route.exitPoint];
-    const forward = new Vector3(0, 0, 1);
-    let placed = 0;
+    const chevronGeo = new ShapeGeometry(shape);
+    const material   = new MeshBasicMaterial({
+      color:       ARROW_COLOR,
+      transparent: true,
+      opacity:     0.88,
+      side:        DoubleSide,
+    });
+
+    // Build chevrons along each route segment.
+    // segmentMeta links each Group to its target-waypoint index for culling.
+    const arrowsRoot  = new Group();
+    const segmentMeta: Array<{ group: Group; wpIdx: number }> = [];
+    const waypoints   = [...route.routePoints, route.exitPoint] as Coordinate3D[];
+    const forward     = new Vector3(0, 0, 1);
+    let placed        = 0;
 
     for (let i = 0; i < waypoints.length; i++) {
-      const from = i === 0 ? { x: 0, y: 0, z: 0 } : waypoints[i - 1]!;
-      const to = waypoints[i]!;
-      const segment = new Vector3(to.x - from.x, 0, to.z - from.z);
-      const length = segment.length();
-      if (length < 0.01) continue;
-      const dir = segment.clone().normalize();
+      const from: Coordinate3D = i === 0 ? route.origin : waypoints[i - 1]!;
+      const to: Coordinate3D   = waypoints[i]!;
+      const seg = new Vector3(to.x - from.x, 0, to.z - from.z);
+      const len = seg.length();
+      if (len < 0.01) continue;
+      const dir = seg.clone().normalize();
 
-      // Satu arrow per meter, dibatasi agar object count tetap rendah.
-      const steps = Math.min(Math.max(Math.floor(length), 1), 8);
+      const steps = Math.min(Math.max(Math.floor(len), 1), 8);
       for (let s = 0; s < steps; s++) {
-        const t = (s + 0.5) / steps;
+        const t    = (s + 0.5) / steps;
+        const mesh = new Mesh(chevronGeo, material);
+        mesh.rotation.x = Math.PI / 2; // ShapeGeometry XY → XZ floor plane
+
         const g = new Group();
-        const shaftMesh = new Mesh(shaftGeo, material);
-        shaftMesh.rotation.x = Math.PI / 2;
-        shaftMesh.position.z = -0.15;
-        const headMesh = new Mesh(headGeo, material);
-        headMesh.rotation.x = Math.PI / 2;
-        headMesh.position.z = 0.15;
-        g.add(shaftMesh, headMesh);
-        g.position.set(from.x + dir.x * length * t, 0.05, from.z + dir.z * length * t);
+        g.add(mesh);
+        g.position.set(
+          from.x + dir.x * len * t,
+          0.02, // 2 cm above floor to avoid z-fighting
+          from.z + dir.z * len * t,
+        );
         g.quaternion.setFromUnitVectors(forward, dir);
-        arrows.add(g);
+        arrowsRoot.add(g);
+        segmentMeta.push({ group: g, wpIdx: i });
         placed++;
       }
     }
-    scene.add(arrows);
+    scene.add(arrowsRoot);
 
-    const sampler = new FpsSampler();
-    const euler = new Euler(0, 0, 0, 'YXZ');
-    const quat = new Quaternion();
-    let animId = 0;
-    let readyFired = false;
+    const sampler      = new FpsSampler();
+    const euler        = new Euler(0, 0, 0, 'YXZ');
+    const quat         = new Quaternion();
+    let animId         = 0;
+    let readyFired     = false;
     let lastGuidanceAt = 0;
 
     function animate(nowMs: number) {
       animId = requestAnimationFrame(animate);
       sampler.tick(nowMs);
 
-      // Update hanya transform yang perlu; tidak ada alokasi di dalam loop.
+      // Move camera to tracked position; compass heading drives rotation.
+      camera.position.x = positionRef.current.x;
+      camera.position.z = positionRef.current.z;
       euler.set(0, MathUtils.degToRad(-headingRef.current), 0);
       quat.setFromEuler(euler);
       camera.quaternion.copy(quat);
@@ -189,15 +207,18 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
         onSceneReady();
       }
 
-      // Guidance dievaluasi ~4x/detik, bukan tiap frame.
+      // Guidance and segment culling at ~4 Hz — no per-frame allocations.
       if (nowMs - lastGuidanceAt > 250) {
         lastGuidanceAt = nowMs;
-        const event = computeGuidance(route, {
-          position: { x: 0, y: 0, z: 0 },
-          headingDeg: headingRef.current,
-        });
+        const pose      = { position: positionRef.current, headingDeg: headingRef.current };
+        const event     = computeGuidance(route, pose);
+        const activeIdx = activeWaypointIndex(route, pose);
         setGuidance(event);
         speakerRef.current?.announce(event, nowMs);
+        // Hide chevrons for segments the user has already walked through.
+        for (const { group, wpIdx } of segmentMeta) {
+          group.visible = wpIdx >= activeIdx;
+        }
       }
     }
     animId = requestAnimationFrame(animate);
@@ -211,7 +232,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
     }
     window.addEventListener('resize', onResize);
 
-    // Hentikan loop saat tab tersembunyi — rAF tetap membakar baterai di background.
     function onVisibility() {
       if (document.hidden) cancelAnimationFrame(animId);
       else animId = requestAnimationFrame(animate);
@@ -230,13 +250,12 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
           );
         }
       }
-      shaftGeo.dispose();
-      headGeo.dispose();
+      chevronGeo.dispose();
       material.dispose();
       renderer.dispose();
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
     };
-  }, [route, onSceneReady]);
+  }, [route, onSceneReady]); // positionRef/headingRef are stable refs — safe to omit
 
   const instruction = guidance ? guidanceToSpeech(guidance) : 'Menyiapkan panduan...';
 
@@ -257,11 +276,6 @@ export default function ArScene({ route, stream, mode, onModeChange, onSceneRead
         </div>
       )}
 
-      {/*
-        Instruksi tekstual adalah teks tindakan yang sama dengan yang diucapkan.
-        Tidak menyebut panah atau warna, sehingga tetap dapat dipahami pada mode
-        AUDIO_PRIMARY dan tidak bergantung pada rendering AR.
-      */}
       <div
         aria-live="assertive"
         className="absolute bottom-24 left-4 right-4 flex justify-center pointer-events-none"
