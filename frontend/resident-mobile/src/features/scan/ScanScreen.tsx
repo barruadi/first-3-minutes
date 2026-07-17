@@ -8,6 +8,12 @@ import type { MeshStatsEvent } from '../../../modules/lidar-scanner';
 import { buildingApi } from '../../services/apiClient';
 import { scanStore } from '../../store/scanStore';
 
+const NAVY = '#0A2947';
+const CREAM = '#F3E4C9';
+const EARTH = '#8B5E3C';
+const SAFETY_GREEN = '#39FF14';
+const SAFETY_RED = '#D93025';
+
 type Phase = 'scanning' | 'stopping' | 'uploading' | 'done' | 'error';
 
 export default function ScanScreen() {
@@ -23,23 +29,14 @@ export default function ScanScreen() {
   const handleStop = useCallback(async () => {
     if (phase !== 'scanning') return;
     if (stats.anchorCount === 0) {
-      Alert.alert(
-        'Belum Ada Data',
-        'Arahkan kamera ke ruangan terlebih dahulu untuk memulai pemindaian.',
-      );
+      Alert.alert('Belum Ada Data', 'Arahkan kamera ke ruangan terlebih dahulu untuk memulai pemindaian.');
       return;
     }
-
     try {
       setPhase('stopping');
-      const [floorPlan, meshUri] = await Promise.all([
-        stopAndGenerateFloorPlan(),
-        exportMeshOBJ(),
-      ]);
-
+      const [floorPlan, meshUri] = await Promise.all([stopAndGenerateFloorPlan(), exportMeshOBJ()]);
       setPhase('uploading');
       const result = await buildingApi.uploadScan(floorPlan.uri, meshUri);
-
       scanStore.set({
         scanId: result.id,
         floorPlanUrl: result.floorPlanUrl,
@@ -49,7 +46,6 @@ export default function ScanScreen() {
           originZ: floorPlan.originZ,
         },
       });
-
       setPhase('done');
     } catch (e) {
       setErrorMsg(e instanceof Error ? e.message : 'Terjadi kesalahan tak dikenal.');
@@ -65,10 +61,10 @@ export default function ScanScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      {/* AR camera + live wireframe mesh */}
+      {/* AR camera + live wireframe mesh (safety/AR context — dark bg + green mesh is correct) */}
       <ARScanView ref={arRef} style={styles.arView} onMeshStats={handleMeshStats} />
 
-      {/* Stats HUD — top right */}
+      {/* Stats HUD — safety/AR context, green text on dark */}
       {phase === 'scanning' && (
         <View style={styles.hud}>
           <Text style={styles.hudText}>Jangkar: {stats.anchorCount}</Text>
@@ -76,12 +72,12 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* Processing / done / error overlay */}
+      {/* Post-scan overlay — brand palette */}
       {phase !== 'scanning' && (
         <View style={styles.overlay}>
           {(phase === 'stopping' || phase === 'uploading') && (
             <>
-              <ActivityIndicator size="large" color="#39FF14" />
+              <ActivityIndicator size="large" color={SAFETY_GREEN} />
               <Text style={styles.overlayText}>
                 {phase === 'stopping' ? 'Menghasilkan denah lantai...' : 'Mengunggah ke server...'}
               </Text>
@@ -89,7 +85,9 @@ export default function ScanScreen() {
           )}
           {phase === 'done' && (
             <>
-              <Text style={styles.doneIcon}>✓</Text>
+              <View style={styles.doneCircle}>
+                <Text style={styles.doneCheck}>✓</Text>
+              </View>
               <Text style={styles.overlayText}>Pemindaian tersimpan!</Text>
               <Text style={styles.overlaySubtext}>
                 Buka tab "3D Model" untuk melihat hasil, atau tab "QR Codes" untuk menambahkan titik evakuasi.
@@ -98,7 +96,9 @@ export default function ScanScreen() {
           )}
           {phase === 'error' && (
             <>
-              <Text style={styles.errorIcon}>✕</Text>
+              <View style={styles.errorCircle}>
+                <Text style={styles.errorCheck}>X</Text>
+              </View>
               <Text style={styles.overlayText}>Gagal menyimpan</Text>
               <Text style={styles.overlaySubtext}>{errorMsg}</Text>
               <TouchableOpacity style={styles.actionBtn} onPress={handleRetry}>
@@ -109,12 +109,11 @@ export default function ScanScreen() {
         </View>
       )}
 
-      {/* Bottom controls — scanning phase only */}
+      {/* Bottom controls — scanning phase */}
       {phase === 'scanning' && (
         <View style={styles.controls}>
           <Text style={styles.instructions}>
             Arahkan kamera ke seluruh ruangan. Mesh hijau menunjukkan area yang sudah dipindai.
-            Tidak ada batas waktu — pindai hingga selesai.
           </Text>
           <TouchableOpacity
             style={[styles.stopBtn, stats.anchorCount === 0 && styles.stopBtnDisabled]}
@@ -131,6 +130,7 @@ export default function ScanScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
   arView: { ...StyleSheet.absoluteFillObject },
+  // HUD in safety/AR context — green text OK
   hud: {
     position: 'absolute',
     top: 16,
@@ -140,27 +140,47 @@ const styles = StyleSheet.create({
     padding: 10,
     gap: 3,
   },
-  hudText: { color: '#39FF14', fontSize: 12, fontFamily: 'monospace' },
+  hudText: { color: SAFETY_GREEN, fontSize: 12, fontFamily: 'monospace' },
+  // Post-scan overlay — brand colors
   overlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.78)',
+    backgroundColor: 'rgba(10, 41, 71, 0.90)',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 18,
     padding: 32,
   },
-  doneIcon: { fontSize: 72, color: '#39FF14' },
-  errorIcon: { fontSize: 72, color: '#FF4444' },
-  overlayText: { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  overlaySubtext: { color: 'rgba(255,255,255,0.7)', fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  doneCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2.5,
+    borderColor: EARTH,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  doneCheck: { fontSize: 40, color: EARTH },
+  errorCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2.5,
+    borderColor: SAFETY_RED,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorCheck: { fontSize: 36, color: SAFETY_RED, fontWeight: '700' },
+  overlayText: { color: CREAM, fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  overlaySubtext: { color: 'rgba(243, 228, 201, 0.65)', fontSize: 14, textAlign: 'center', lineHeight: 21 },
   actionBtn: {
     marginTop: 8,
-    backgroundColor: '#39FF14',
+    backgroundColor: EARTH,
     paddingHorizontal: 28,
     paddingVertical: 13,
-    borderRadius: 10,
+    borderRadius: 16,
   },
-  actionBtnText: { color: '#000', fontWeight: '700', fontSize: 16 },
+  actionBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  // Bottom controls
   controls: {
     position: 'absolute',
     bottom: 0,
@@ -168,20 +188,21 @@ const styles = StyleSheet.create({
     right: 0,
     padding: 20,
     gap: 14,
-    backgroundColor: 'rgba(0,0,0,0.62)',
+    backgroundColor: 'rgba(10, 41, 71, 0.85)',
   },
   instructions: {
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(243, 228, 201, 0.8)',
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 19,
   },
+  // Stop button: safety green (AR scanning action)
   stopBtn: {
-    backgroundColor: '#39FF14',
+    backgroundColor: SAFETY_GREEN,
     paddingVertical: 15,
-    borderRadius: 10,
+    borderRadius: 16,
     alignItems: 'center',
   },
-  stopBtnDisabled: { backgroundColor: 'rgba(57,255,20,0.3)' },
+  stopBtnDisabled: { backgroundColor: 'rgba(57, 255, 20, 0.25)' },
   stopBtnText: { color: '#000', fontWeight: '700', fontSize: 17 },
 });

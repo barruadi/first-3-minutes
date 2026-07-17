@@ -4,6 +4,15 @@ import jsQR from 'jsqr';
 import { fetchAnchor, AnchorApiError } from '../services/anchorApi.js';
 import type { AnchorData } from '../services/anchorApi.js';
 
+const C = {
+  navy: '#0A2947',
+  cream: '#F3E4C9',
+  white: '#FFFFFF',
+  safetyGreen: '#39FF14',
+  overlayBg: 'rgba(10, 41, 71, 0.90)',
+  textMuted: 'rgba(243, 228, 201, 0.65)',
+};
+
 type ScanState =
   | { status: 'requesting_camera' }
   | { status: 'camera_denied' }
@@ -22,7 +31,6 @@ export default function ScanPage() {
   const rafRef = useRef<number>(0);
   const [state, setState] = useState<ScanState>({ status: 'requesting_camera' });
 
-  // Start camera on mount
   useEffect(() => {
     let cancelled = false;
 
@@ -32,16 +40,10 @@ export default function ScanPage() {
           video: { facingMode: 'environment' },
           audio: false,
         });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
         streamRef.current = stream;
         const video = videoRef.current;
-        if (video) {
-          video.srcObject = stream;
-          await video.play();
-        }
+        if (video) { video.srcObject = stream; await video.play(); }
         setState({ status: 'scanning' });
       } catch {
         if (!cancelled) setState({ status: 'camera_denied' });
@@ -49,11 +51,7 @@ export default function ScanPage() {
     }
 
     void startCamera();
-
-    return () => {
-      cancelled = true;
-      stopCamera();
-    };
+    return () => { cancelled = true; stopCamera(); };
   }, []);
 
   function stopCamera() {
@@ -62,7 +60,6 @@ export default function ScanPage() {
     streamRef.current = null;
   }
 
-  // QR scan loop — runs once state transitions to 'scanning'
   const scanLoop = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -70,38 +67,25 @@ export default function ScanPage() {
       rafRef.current = requestAnimationFrame(scanLoop);
       return;
     }
-
     const ctx = canvas.getContext('2d', { willReadFrequently: true });
     if (!ctx) return;
-
     const w = video.videoWidth;
     const h = video.videoHeight;
-    if (w === 0 || h === 0) {
-      rafRef.current = requestAnimationFrame(scanLoop);
-      return;
-    }
-
+    if (w === 0 || h === 0) { rafRef.current = requestAnimationFrame(scanLoop); return; }
     canvas.width = w;
     canvas.height = h;
     ctx.drawImage(video, 0, 0, w, h);
     const imageData = ctx.getImageData(0, 0, w, h);
-    const result = jsQR(imageData.data, w, h, {
-      inversionAttempts: 'dontInvert',
-    });
-
+    const result = jsQR(imageData.data, w, h, { inversionAttempts: 'dontInvert' });
     if (result) {
       const match = ANCHOR_QR_PATTERN.exec(result.data);
       if (match && match[1]) {
-        const anchorId = match[1];
-        // Stop scanning immediately
         cancelAnimationFrame(rafRef.current);
         stopCamera();
-        setState({ status: 'fetching', anchorId });
+        setState({ status: 'fetching', anchorId: match[1] });
         return;
       }
-      // QR found but not our format — show error briefly and continue
     }
-
     rafRef.current = requestAnimationFrame(scanLoop);
   }, []);
 
@@ -112,11 +96,9 @@ export default function ScanPage() {
     }
   }, [state.status, scanLoop]);
 
-  // Fetch anchor data when we have an ID
   useEffect(() => {
     if (state.status !== 'fetching') return;
     const controller = new AbortController();
-
     void (async () => {
       try {
         const data = await fetchAnchor(state.anchorId, controller.signal);
@@ -124,21 +106,14 @@ export default function ScanPage() {
         setState({ status: 'done', data });
       } catch (e) {
         if (controller.signal.aborted) return;
-        const msg =
-          e instanceof AnchorApiError
-            ? e.message
-            : 'Failed to load anchor data.';
-        setState({ status: 'error', message: msg });
+        setState({ status: 'error', message: e instanceof AnchorApiError ? e.message : 'Failed to load anchor data.' });
       }
     })();
-
     return () => controller.abort();
   }, [state]);
 
-  // Navigate to map once data is ready
   useEffect(() => {
     if (state.status === 'done') {
-      // Store data in sessionStorage to pass to the map page
       sessionStorage.setItem('anchorData', JSON.stringify(state.data));
       navigate('/map', { replace: true });
     }
@@ -157,10 +132,8 @@ export default function ScanPage() {
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
-      {/* Hidden canvas for QR decoding */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
-      {/* Camera video */}
       <video
         ref={videoRef}
         playsInline
@@ -172,7 +145,7 @@ export default function ScanPage() {
           width: '100%',
           height: '100%',
           objectFit: 'cover',
-          opacity: state.status === 'scanning' ? 1 : 0.3,
+          opacity: state.status === 'scanning' ? 1 : 0.25,
         }}
       />
 
@@ -183,10 +156,11 @@ export default function ScanPage() {
           position: 'absolute',
           top: 20,
           left: 16,
-          background: 'rgba(0,0,0,0.5)',
-          border: '1px solid rgba(255,255,255,0.3)',
+          background: 'rgba(255,255,255,0.15)',
+          border: '1px solid rgba(255,255,255,0.35)',
+          backdropFilter: 'blur(8px)',
           borderRadius: 10,
-          color: '#fff',
+          color: C.white,
           fontSize: 14,
           fontWeight: 600,
           padding: '8px 16px',
@@ -197,7 +171,6 @@ export default function ScanPage() {
         ← Back
       </button>
 
-      {/* Overlay UI */}
       {state.status === 'requesting_camera' && (
         <Overlay>
           <Spinner />
@@ -207,53 +180,37 @@ export default function ScanPage() {
 
       {state.status === 'camera_denied' && (
         <Overlay>
-          <span style={{ fontSize: 48 }}>🚫</span>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            border: `2px solid ${C.cream}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, color: C.cream, flexShrink: 0,
+          }}>
+            X
+          </div>
           <p style={labelStyle}>Camera access denied</p>
           <p style={subStyle}>Enable camera in your browser settings, then reload the page.</p>
-          <OutlineButton onClick={() => navigate('/')}>Go Back</OutlineButton>
+          <ActionButton onClick={() => navigate('/')}>Go Back</ActionButton>
         </Overlay>
       )}
 
       {state.status === 'scanning' && (
         <>
-          {/* Scanning frame */}
-          <div
-            style={{
-              position: 'relative',
-              width: 240,
-              height: 240,
-              zIndex: 5,
-            }}
-          >
-            {/* top-left */}
+          <div style={{ position: 'relative', width: 240, height: 240, zIndex: 5 }}>
             <CornerBracket top left />
-            {/* top-right */}
             <CornerBracket top left={false} />
-            {/* bottom-left */}
             <CornerBracket top={false} left />
-            {/* bottom-right */}
             <CornerBracket top={false} left={false} />
           </div>
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 80,
-              left: 0,
-              right: 0,
-              display: 'flex',
-              justifyContent: 'center',
-            }}
-          >
-            <div
-              style={{
-                background: 'rgba(0,0,0,0.65)',
-                borderRadius: 20,
-                padding: '10px 20px',
-                color: '#fff',
-                fontSize: 14,
-                textAlign: 'center',
-              }}
-            >
+          <div style={{ position: 'absolute', bottom: 80, left: 0, right: 0, display: 'flex', justifyContent: 'center' }}>
+            <div style={{
+              background: 'rgba(0,0,0,0.65)',
+              borderRadius: 20,
+              padding: '10px 20px',
+              color: C.white,
+              fontSize: 14,
+              textAlign: 'center',
+            }}>
               Point camera at the QR code
             </div>
           </div>
@@ -269,46 +226,42 @@ export default function ScanPage() {
 
       {state.status === 'error' && (
         <Overlay>
-          <span style={{ fontSize: 48 }}>⚠️</span>
+          <div style={{
+            width: 48, height: 48, borderRadius: '50%',
+            border: `2px solid #F3A020`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 22, color: '#F3A020', flexShrink: 0, fontWeight: 700,
+          }}>
+            !
+          </div>
           <p style={labelStyle}>Error</p>
           <p style={subStyle}>{state.message}</p>
-          <OutlineButton
-            onClick={() => {
-              // Restart scanning
-              stopCamera();
-              setState({ status: 'requesting_camera' });
-              // Re-trigger camera via re-mount — simplest approach: navigate away and back
-              navigate('/scan', { replace: true });
-            }}
-          >
+          <ActionButton onClick={() => { stopCamera(); navigate('/scan', { replace: true }); }}>
             Try Again
-          </OutlineButton>
-          <OutlineButton onClick={() => navigate('/')}>Go Home</OutlineButton>
+          </ActionButton>
+          <ActionButton onClick={() => navigate('/')}>Go Home</ActionButton>
         </Overlay>
       )}
     </div>
   );
 }
 
-// ---------- sub-components ----------
-
 function Overlay({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      style={{
-        position: 'relative',
-        zIndex: 10,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        gap: 16,
-        background: 'rgba(10,26,14,0.85)',
-        borderRadius: 20,
-        padding: '32px 28px',
-        maxWidth: 300,
-        textAlign: 'center',
-      }}
-    >
+    <div style={{
+      position: 'relative',
+      zIndex: 10,
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 16,
+      background: C.overlayBg,
+      borderRadius: 20,
+      padding: '32px 28px',
+      maxWidth: 300,
+      textAlign: 'center',
+      backdropFilter: 'blur(12px)',
+    }}>
       {children}
     </div>
   );
@@ -316,48 +269,26 @@ function Overlay({ children }: { children: React.ReactNode }) {
 
 function Spinner() {
   return (
-    <div
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: '50%',
-        border: '3px solid rgba(57,255,20,0.25)',
-        borderTop: '3px solid #39FF14',
-        animation: 'spin 0.8s linear infinite',
-      }}
-    />
+    <div style={{
+      width: 40,
+      height: 40,
+      borderRadius: '50%',
+      border: `3px solid rgba(57,255,20,0.25)`,
+      borderTop: `3px solid ${C.safetyGreen}`,
+      animation: 'spin 0.8s linear infinite',
+    }} />
   );
 }
 
-const labelStyle: React.CSSProperties = {
-  margin: 0,
-  color: '#fff',
-  fontSize: 16,
-  fontWeight: 600,
-};
-
-const subStyle: React.CSSProperties = {
-  margin: 0,
-  color: 'rgba(255,255,255,0.6)',
-  fontSize: 13,
-  lineHeight: 1.5,
-};
-
-function OutlineButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
+function ActionButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
       style={{
         background: 'transparent',
-        border: '1px solid rgba(57,255,20,0.6)',
+        border: `1px solid rgba(255,255,255,0.5)`,
         borderRadius: 10,
-        color: '#39FF14',
+        color: C.white,
         fontSize: 14,
         fontWeight: 600,
         padding: '10px 20px',
@@ -370,32 +301,41 @@ function OutlineButton({
   );
 }
 
-// Corner bracket element for scan frame
-// top=true → top edge, top=false → bottom edge
-// left=true → left edge, left=false → right edge
+const labelStyle: React.CSSProperties = {
+  margin: 0,
+  color: C.cream,
+  fontSize: 16,
+  fontWeight: 600,
+};
+
+const subStyle: React.CSSProperties = {
+  margin: 0,
+  color: C.textMuted,
+  fontSize: 13,
+  lineHeight: 1.5,
+};
+
 function CornerBracket({ top, left }: { top: boolean; left: boolean }) {
   const size = 24;
   const thickness = 3;
-  const color = '#39FF14';
+  const color = C.safetyGreen;
   return (
-    <div
-      style={{
-        position: 'absolute',
-        top: top ? 0 : undefined,
-        bottom: top ? undefined : 0,
-        left: left ? 0 : undefined,
-        right: left ? undefined : 0,
-        width: size,
-        height: size,
-        borderTop: top ? `${thickness}px solid ${color}` : 'none',
-        borderBottom: top ? 'none' : `${thickness}px solid ${color}`,
-        borderLeft: left ? `${thickness}px solid ${color}` : 'none',
-        borderRight: left ? 'none' : `${thickness}px solid ${color}`,
-        borderTopLeftRadius: top && left ? 4 : 0,
-        borderTopRightRadius: top && !left ? 4 : 0,
-        borderBottomLeftRadius: !top && left ? 4 : 0,
-        borderBottomRightRadius: !top && !left ? 4 : 0,
-      }}
-    />
+    <div style={{
+      position: 'absolute',
+      top: top ? 0 : undefined,
+      bottom: top ? undefined : 0,
+      left: left ? 0 : undefined,
+      right: left ? undefined : 0,
+      width: size,
+      height: size,
+      borderTop: top ? `${thickness}px solid ${color}` : 'none',
+      borderBottom: top ? 'none' : `${thickness}px solid ${color}`,
+      borderLeft: left ? `${thickness}px solid ${color}` : 'none',
+      borderRight: left ? 'none' : `${thickness}px solid ${color}`,
+      borderTopLeftRadius: top && left ? 4 : 0,
+      borderTopRightRadius: top && !left ? 4 : 0,
+      borderBottomLeftRadius: !top && left ? 4 : 0,
+      borderBottomRightRadius: !top && !left ? 4 : 0,
+    }} />
   );
 }

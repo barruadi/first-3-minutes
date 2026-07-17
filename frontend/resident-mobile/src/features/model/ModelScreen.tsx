@@ -3,6 +3,12 @@ import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-na
 import { MeshViewerView, reloadMeshViewer } from '../../../modules/lidar-scanner';
 import { scanStore } from '../../store/scanStore';
 
+const NAVY = '#0A2947';
+const CREAM = '#F3E4C9';
+const EARTH = '#8B5E3C';
+const TEXT_SEC = 'rgba(243, 228, 201, 0.55)';
+const BORDER = 'rgba(243, 228, 201, 0.15)';
+
 export default function ModelScreen() {
   const viewerRef = useRef(null);
   const hasScan = Boolean(scanStore.get());
@@ -15,7 +21,9 @@ export default function ModelScreen() {
     return (
       <SafeAreaView style={styles.root}>
         <View style={styles.empty}>
-          <Text style={styles.emptyIcon}>⬡</Text>
+          <View style={styles.emptyIcon}>
+            <Text style={styles.emptyIconText}>3D</Text>
+          </View>
           <Text style={styles.emptyTitle}>Belum ada pemindaian</Text>
           <Text style={styles.emptyBody}>
             Gunakan tab "Scan" untuk memindai ruangan dengan LiDAR terlebih dahulu.
@@ -27,10 +35,8 @@ export default function ModelScreen() {
 
   return (
     <SafeAreaView style={styles.root}>
-      {/* 3D orbit viewer */}
       <MeshViewerView ref={viewerRef} style={styles.viewer} />
 
-      {/* Gesture hint */}
       <View style={styles.hintBar}>
         <Text style={styles.hintText}>Geser: putar  •  Jepit: zoom  •  2 jari: geser</Text>
         <TouchableOpacity style={styles.reloadBtn} onPress={handleReload}>
@@ -42,7 +48,7 @@ export default function ModelScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#080F09' },
+  root: { flex: 1, backgroundColor: NAVY },
   viewer: { flex: 1 },
   hintBar: {
     flexDirection: 'row',
@@ -50,16 +56,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(10, 41, 71, 0.95)',
+    borderTopWidth: 1,
+    borderTopColor: BORDER,
   },
-  hintText: { color: 'rgba(255,255,255,0.55)', fontSize: 12 },
+  hintText: { color: TEXT_SEC, fontSize: 12 },
   reloadBtn: {
-    backgroundColor: '#39FF14',
+    backgroundColor: EARTH,
     paddingHorizontal: 14,
     paddingVertical: 6,
-    borderRadius: 6,
+    borderRadius: 8,
   },
-  reloadText: { color: '#000', fontWeight: '700', fontSize: 13 },
+  reloadText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   empty: {
     flex: 1,
     justifyContent: 'center',
@@ -67,7 +75,16 @@ const styles = StyleSheet.create({
     padding: 32,
     gap: 16,
   },
-  emptyIcon: { fontSize: 72, color: '#39FF14' },
-  emptyTitle: { color: '#fff', fontSize: 22, fontWeight: '700', textAlign: 'center' },
-  emptyBody: { color: 'rgba(255,255,255,0.6)', fontSize: 15, textAlign: 'center', lineHeight: 22 },
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: BORDER,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyIconText: { color: CREAM, fontSize: 20, fontWeight: '700', letterSpacing: 1 },
+  emptyTitle: { color: CREAM, fontSize: 22, fontWeight: '700', textAlign: 'center' },
+  emptyBody: { color: TEXT_SEC, fontSize: 15, textAlign: 'center', lineHeight: 22 },
 });
