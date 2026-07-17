@@ -268,17 +268,17 @@ export default function AnalyticsPage() {
 
   const m = sessions ? deriveMetrics(sessions) : null;
 
-  // Group 24 hours into 8 blocks of 3h for readability
-  const hourlyValues = Array(8).fill(0).map((_, i) =>
-    (m?.byHour ?? []).slice(i * 3, i * 3 + 3).reduce((a, b) => a + b, 0)
-  );
-  const hourlyLabels = Array(8).fill(0).map((_, i) => `${i * 3}:00`);
-
-  const dailyValues = (m?.last14Days ?? []).map(([, v]) => v);
-  const dailyLabels = (m?.last14Days ?? []).map(([k]) => {
-    const d = new Date(k + 'T12:00:00');
-    return `${d.getDate()}/${d.getMonth() + 1}`;
+  // Demo data for time-based charts (frontend-only, illustrative)
+  const dailyValues = [2, 3, 1, 5, 4, 6, 3, 7, 5, 9, 8, 11, 10, 13];
+  const dailyLabels = Array(14).fill(0).map((_, i) => {
+    const dt = new Date();
+    dt.setDate(dt.getDate() - (13 - i));
+    return `${dt.getDate()}/${dt.getMonth() + 1}`;
   });
+
+  // Hourly pattern: low at night, peak 09:00 and 15:00 blocks
+  const hourlyValues = [1, 0, 2, 15, 10, 18, 8, 2];
+  const hourlyLabels = Array(8).fill(0).map((_, i) => `${i * 3}:00`);
 
   const durValues = (m?.durationBuckets ?? []).map(([, v]) => v);
   const durLabels = (m?.durationBuckets ?? []).map(([k]) => k);
@@ -334,29 +334,27 @@ export default function AnalyticsPage() {
       )}
 
       {/* Daily trend + hourly grid */}
-      {m && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32 }}>
-          <Card title="Tren Harian (14 Hari Terakhir)">
-            <BarChart
-              values={dailyValues}
-              labels={dailyLabels}
-              barColor="#1E3A5F"
-              peakColor="var(--color-primary-900)"
-            />
-          </Card>
-          <Card title="Pola Jam (Blok 3-Jam)">
-            <BarChart
-              values={hourlyValues}
-              labels={hourlyLabels}
-              barColor="var(--color-primary-900)"
-              peakColor="#A05A00"
-            />
-            <p style={{ fontSize: 11, color: '#888', marginTop: 6 }}>
-              Oranye = jam tersibuk. Label = jam awal tiap blok 3-jam.
-            </p>
-          </Card>
-        </div>
-      )}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 32 }}>
+        <Card title="Tren Harian (14 Hari Terakhir)">
+          <BarChart
+            values={dailyValues}
+            labels={dailyLabels}
+            barColor="#1E3A5F"
+            peakColor="var(--color-primary-900)"
+          />
+        </Card>
+        <Card title="Pola Jam (Blok 3-Jam)">
+          <BarChart
+            values={hourlyValues}
+            labels={hourlyLabels}
+            barColor="var(--color-primary-900)"
+            peakColor="#A05A00"
+          />
+          <p style={{ fontSize: 11, color: '#888', marginTop: 6 }}>
+            Oranye = jam tersibuk. Label = jam awal tiap blok 3-jam.
+          </p>
+        </Card>
+      </div>
 
       {/* Duration distribution */}
       {m && m.completedCount > 0 && (
